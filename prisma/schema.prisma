@@ -1,0 +1,24 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model spread_log {
+  id             Int      @id @default(autoincrement())
+  timestamp      DateTime @db.Timestamptz(6)
+  symbol         String   @db.VarChar(50)
+  mexc           Float?
+  bitget         Float?
+  coinex         Float?
+  mx_bg_pct      Float?
+  mx_cx_pct      Float?
+  bg_cx_pct      Float?
+  max_spread_pct Float?
+
+  @@index([symbol, timestamp(sort: Desc)], map: "idx_symbol_ts")
+  @@index([timestamp(sort: Desc)], map: "idx_timestamp")
+}
