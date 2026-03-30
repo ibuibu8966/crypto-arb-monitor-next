@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getLogsUseCase } from "@/use-cases/get-logs.use-case";
+import { captureError } from "@/lib/logger";
 
 const querySchema = z.object({
   limit: z.coerce.number().min(1).max(500).default(50),
@@ -19,7 +20,7 @@ export async function getLogsController(req: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors }, { status: 400 });
     }
-    // TODO: Sentry導入後に置き換え
+    captureError("logs", error);
     return NextResponse.json(
       { error: "データ取得に失敗しました" },
       { status: 500 }

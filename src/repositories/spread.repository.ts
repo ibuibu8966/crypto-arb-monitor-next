@@ -34,6 +34,18 @@ export class SpreadRepository {
         symbol,
         timestamp: { gte: since },
       },
+      select: {
+        id: true,
+        symbol: true,
+        timestamp: true,
+        mexc: true,
+        bitget: true,
+        coinex: true,
+        mx_bg_pct: true,
+        mx_cx_pct: true,
+        bg_cx_pct: true,
+        max_spread_pct: true,
+      },
       orderBy: { timestamp: "desc" },
       take: limit,
     });
@@ -204,6 +216,18 @@ export class SpreadRepository {
     const [rows, total] = await Promise.all([
       prisma.spread_log.findMany({
         where,
+        select: {
+          id: true,
+          symbol: true,
+          timestamp: true,
+          mexc: true,
+          bitget: true,
+          coinex: true,
+          mx_bg_pct: true,
+          mx_cx_pct: true,
+          bg_cx_pct: true,
+          max_spread_pct: true,
+        },
         orderBy: { timestamp: "desc" },
         skip: opts.offset,
         take: opts.limit,

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getRealtimeUseCase } from "@/use-cases/get-realtime.use-case";
+import { captureError } from "@/lib/logger";
 
 export async function getRealtimeController() {
   try {
@@ -8,7 +9,7 @@ export async function getRealtimeController() {
       headers: { "Cache-Control": "s-maxage=5, stale-while-revalidate=10" },
     });
   } catch (error) {
-    // TODO: Sentry導入後に置き換え
+    captureError("realtime", error);
     return NextResponse.json(
       { error: "データ取得に失敗しました" },
       { status: 500 }

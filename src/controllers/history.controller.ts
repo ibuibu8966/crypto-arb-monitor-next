@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getHistoryUseCase } from "@/use-cases/get-history.use-case";
+import { captureError } from "@/lib/logger";
 
 const querySchema = z.object({
   symbol: z.string().min(1),
@@ -18,7 +19,7 @@ export async function getHistoryController(req: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors }, { status: 400 });
     }
-    // TODO: Sentry導入後に置き換え
+    captureError("history", error);
     return NextResponse.json(
       { error: "データ取得に失敗しました" },
       { status: 500 }
