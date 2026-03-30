@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getStatsUseCase } from "@/use-cases/get-stats.use-case";
 
 const querySchema = z.object({
-  hours: z.coerce.number().min(1).max(168).default(24),
+  hours: z.coerce.number().min(1).max(8760).default(24),
 });
 
 export async function getStatsController(req: NextRequest) {
