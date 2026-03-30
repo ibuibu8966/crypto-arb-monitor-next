@@ -10,8 +10,9 @@ import {
   YAxis,
   ResponsiveContainer,
   Tooltip,
+  ReferenceLine,
 } from "recharts";
-import type { StatsDTO, SpreadTickDTO } from "@/types";
+import type { StatsDTO, SpreadTickDTO, PairName } from "@/types";
 
 async function fetchStats(hours: number): Promise<StatsDTO[]> {
   const res = await fetch(`/api/stats?hours=${hours}`);
@@ -30,14 +31,44 @@ async function fetchHistory(
   return res.json();
 }
 
+function getPairValue(r: SpreadTickDTO, pair: PairName): number {
+  switch (pair) {
+    case "mx_bg": return r.mxBgPct ?? 0;
+    case "mx_cx": return r.mxCxPct ?? 0;
+    case "bg_cx": return r.bgCxPct ?? 0;
+  }
+}
+
+const PAIR_LABELS: Record<PairName, string> = {
+  mx_bg: "MX-BG",
+  mx_cx: "MX-CX",
+  bg_cx: "BG-CX",
+};
+
+const PERIODS = [
+  { label: "1h", hours: 1 },
+  { label: "4h", hours: 4 },
+  { label: "12h", hours: 12 },
+  { label: "24h", hours: 24 },
+  { label: "1W", hours: 168 },
+  { label: "1M", hours: 720 },
+  { label: "1Y", hours: 8760 },
+];
+
 function MiniChart({
   symbol,
   hours,
   onClick,
+  bestPair,
+  crossings20,
+  crossings80,
 }: {
   symbol: string;
   hours: number;
   onClick: () => void;
+  bestPair: PairName;
+  crossings20: number;
+  crossings80: number;
 }) {
   const { data } = useQuery({
     queryKey: ["history", symbol, hours],
@@ -52,14 +83,51 @@ function MiniChart({
         hour: "2-digit",
         minute: "2-digit",
       }),
-      v: r.maxSpreadPct ?? 0,
+      v: getPairValue(r, bestPair),
     }));
-  }, [data]);
+  }, [data, bestPair]);
 
-  const yMax =
-    chartData.length > 0
-      ? Math.max(...chartData.map((d) => Math.abs(d.v))) * 1.05
-      : 1;
+  const { yMin, yMax, line20, line80, yTicks, dataMin, dataMax } = useMemo(() => {
+    if (chartData.length === 0)
+      return { yMin: -1, yMax: 1, line20: 0, line80: 0, yTicks: [0], dataMin: 0, dataMax: 0 };
+
+    const values = chartData.map((d) => d.v);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = max - min;
+    const l20 = min + range * 0.2;
+    const l80 = min + range * 0.8;
+
+    const ticks = [...new Set([max, l80, l20, min, 0])].sort((a, b) => a - b);
+
+    return {
+      yMin: min - range * 0.05,
+      yMax: max + range * 0.05,
+      line20: l20,
+      line80: l80,
+      yTicks: ticks,
+      dataMin: min,
+      dataMax: max,
+    };
+  }, [chartData]);
+
+  // 乖離率をチャートの最終データポイントから計算（見た目と完全一致）
+  const currentPosition = useMemo(() => {
+    if (chartData.length === 0) return null;
+    const lastValue = chartData[chartData.length - 1].v;
+    const range = dataMax - dataMin;
+    if (range === 0) return null;
+    return ((lastValue - dataMin) / range) * 100;
+  }, [chartData, dataMin, dataMax]);
+
+  const posColor =
+    currentPosition != null
+      ? currentPosition >= 80 || currentPosition <= 20
+        ? "#22c55e"
+        : currentPosition >= 60 || currentPosition <= 40
+          ? "#f59e0b"
+          : "#6b7280"
+      : "#6b7280";
 
   return (
     <div
@@ -68,22 +136,52 @@ function MiniChart({
     >
       <div className="text-xs font-bold text-gray-300 mb-1 truncate">
         {symbol}
+        {currentPosition != null && (
+          <span
+            className="ml-1.5 font-mono font-medium"
+            style={{ color: posColor }}
+          >
+            [{Math.round(currentPosition)}%]
+          </span>
+        )}
+        <span className="font-normal text-gray-500 ml-1">
+          (<span className="text-red-400">↑80%:{crossings80}</span> / <span className="text-green-400">↓20%:{crossings20}</span>)
+        </span>
+        <span className="font-normal text-gray-600 ml-1">
+          {PAIR_LABELS[bestPair]}
+        </span>
       </div>
       {chartData.length === 0 ? (
-        <div className="h-24 flex items-center justify-center text-gray-600 text-xs">
+        <div className="h-[200px] flex items-center justify-center text-gray-600 text-xs">
           ...
         </div>
       ) : (
-        <ResponsiveContainer width="100%" height={100}>
-          <AreaChart data={chartData}>
+        <ResponsiveContainer width="100%" height={200}>
+          <AreaChart data={chartData} margin={{ left: 0, right: 5, top: 5, bottom: 0 }}>
             <defs>
               <linearGradient id={`grad-${symbol}`} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.4} />
                 <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <XAxis dataKey="t" hide />
-            <YAxis domain={[0, yMax]} hide />
+            <XAxis
+              dataKey="t"
+              tick={{ fontSize: 9, fill: "#6b7280" }}
+              tickLine={false}
+              axisLine={{ stroke: "#374151" }}
+              interval="preserveStartEnd"
+            />
+            <YAxis
+              domain={[yMin, yMax]}
+              ticks={yTicks}
+              tickCount={5}
+              allowDataOverflow
+              tick={{ fontSize: 9, fill: "#6b7280" }}
+              tickLine={false}
+              axisLine={false}
+              width={48}
+              tickFormatter={(v: number) => `${v.toFixed(2)}%`}
+            />
             <Tooltip
               contentStyle={{
                 backgroundColor: "#111827",
@@ -93,6 +191,27 @@ function MiniChart({
                 color: "#e5e7eb",
               }}
               formatter={(value: number) => [`${value.toFixed(4)}%`, "差率"]}
+            />
+            {/* 0%ライン（ゼロスプレッド位置） */}
+            <ReferenceLine
+              y={0}
+              stroke="#4b5563"
+              strokeDasharray="2 2"
+              strokeWidth={1}
+            />
+            <ReferenceLine
+              y={line80}
+              stroke="#ef4444"
+              strokeDasharray="4 2"
+              strokeWidth={1}
+              label={{ value: "80%", position: "right", fontSize: 8, fill: "#ef4444" }}
+            />
+            <ReferenceLine
+              y={line20}
+              stroke="#22c55e"
+              strokeDasharray="4 2"
+              strokeWidth={1}
+              label={{ value: "20%", position: "right", fontSize: 8, fill: "#22c55e" }}
             />
             <Area
               type="monotone"
@@ -110,7 +229,7 @@ function MiniChart({
 
 export function AllCharts() {
   const router = useRouter();
-  const [count, setCount] = useState(20);
+  const [count, setCount] = useState(0); // 0 = 全通貨
   const [hours, setHours] = useState(24);
   const [minAvg, setMinAvg] = useState(0.01);
   const [maxCap, setMaxCap] = useState(10);
@@ -120,11 +239,17 @@ export function AllCharts() {
     queryFn: () => fetchStats(hours),
   });
 
+
   const filtered = useMemo(() => {
     if (!stats) return [];
-    return stats
+    const sorted = stats
       .filter((s) => s.avgSpread >= minAvg && s.maxSpread <= maxCap)
-      .slice(0, count);
+      .sort((a, b) => {
+        const distA = Math.abs(a.currentPosition - 50);
+        const distB = Math.abs(b.currentPosition - 50);
+        return distB - distA;
+      });
+    return count === 0 ? sorted : sorted.slice(0, count);
   }, [stats, count, minAvg, maxCap]);
 
   return (
@@ -133,11 +258,11 @@ export function AllCharts() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 bg-gray-900 border border-gray-800 rounded-lg p-3">
         <div>
           <label className="text-xs text-gray-500 block mb-1">
-            表示数: {count}
+            表示数: {count === 0 ? "全通貨" : count}
           </label>
           <input
             type="range"
-            min={5}
+            min={0}
             max={50}
             value={count}
             onChange={(e) => setCount(Number(e.target.value))}
@@ -148,16 +273,21 @@ export function AllCharts() {
           <label className="text-xs text-gray-500 block mb-1">
             期間
           </label>
-          <select
-            value={hours}
-            onChange={(e) => setHours(Number(e.target.value))}
-            className="bg-gray-800 text-gray-200 text-xs px-2 py-1.5 rounded w-full"
-          >
-            <option value={1}>1h</option>
-            <option value={6}>6h</option>
-            <option value={24}>24h</option>
-            <option value={168}>7d</option>
-          </select>
+          <div className="flex gap-1">
+            {PERIODS.map((p) => (
+              <button
+                key={p.hours}
+                onClick={() => setHours(p.hours)}
+                className={`px-2 py-1 text-xs rounded cursor-pointer transition-colors ${
+                  hours === p.hours
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
         </div>
         <div>
           <label className="text-xs text-gray-500 block mb-1">
@@ -190,17 +320,22 @@ export function AllCharts() {
       </div>
 
       {/* チャートグリッド */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-        {filtered.map((s) => (
-          <MiniChart
-            key={s.symbol}
-            symbol={s.symbol}
-            hours={hours}
-            onClick={() =>
-              router.push(`/symbol/${encodeURIComponent(s.symbol)}`)
-            }
-          />
-        ))}
+      <div className="grid grid-cols-1 gap-3">
+        {filtered.map((s) => {
+          return (
+            <MiniChart
+              key={s.symbol}
+              symbol={s.symbol}
+              hours={hours}
+              onClick={() =>
+                router.push(`/symbol/${encodeURIComponent(s.symbol)}`)
+              }
+              bestPair={s.bestPair}
+              crossings20={s.crossings20}
+              crossings80={s.crossings80}
+            />
+          );
+        })}
       </div>
 
       {filtered.length === 0 && (

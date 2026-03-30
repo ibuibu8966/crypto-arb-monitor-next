@@ -4,7 +4,7 @@ import { getHistoryUseCase } from "@/use-cases/get-history.use-case";
 
 const querySchema = z.object({
   symbol: z.string().min(1),
-  hours: z.coerce.number().min(1).max(168).default(24),
+  hours: z.coerce.number().min(1).max(8760).default(24),
   limit: z.coerce.number().min(1).max(2000).default(500),
 });
 
