@@ -75,8 +75,10 @@ const MiniChart = memo(function MiniChart({
   const { data } = useQuery({
     queryKey: ["history", symbol, hours],
     queryFn: () => fetchHistory(symbol, hours),
-    staleTime: 5 * 1000,
-    refetchInterval: 10 * 1000,
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 30 * 1000,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });
 
   const chartData = useMemo(() => {
@@ -221,7 +223,7 @@ const MiniChart = memo(function MiniChart({
 
 export function AllCharts() {
   const router = useRouter();
-  const [count, setCount] = useState(0); // 0 = 全通貨
+  const [count, setCount] = useState(20); // デフォルト20銘柄（DB負荷軽減）
   const [hours, setHours] = useState(24);
   const [minAvg, setMinAvg] = useState(0.01);
   const [maxCap, setMaxCap] = useState(10);
