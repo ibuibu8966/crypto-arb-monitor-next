@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useDebounce } from "@/hooks/use-debounce";
 import type { RealtimeRow } from "@/types";
 
 type Props = {
@@ -29,13 +30,14 @@ function priceCell(val: number | null) {
 
 export function SpreadTable({ data, onSymbolClick }: Props) {
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search);
   const [sortKey, setSortKey] = useState<SortKey>("maxSpreadPct");
   const [sortAsc, setSortAsc] = useState(false);
 
   const filtered = useMemo(() => {
     let rows = data;
-    if (search) {
-      const q = search.toUpperCase();
+    if (debouncedSearch) {
+      const q = debouncedSearch.toUpperCase();
       rows = rows.filter((r) => r.symbol.toUpperCase().includes(q));
     }
     rows = [...rows].sort((a, b) => {
@@ -48,7 +50,7 @@ export function SpreadTable({ data, onSymbolClick }: Props) {
         : (bv as number) - (av as number);
     });
     return rows;
-  }, [data, search, sortKey, sortAsc]);
+  }, [data, debouncedSearch, sortKey, sortAsc]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {

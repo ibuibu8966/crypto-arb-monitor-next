@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { useDebounce } from "@/hooks/use-debounce";
 import type { StatsDTO } from "@/types";
 
 const NAV_ITEMS = [
@@ -30,9 +31,10 @@ export function Sidebar() {
     staleTime: 60_000,
   });
 
+  const debouncedSearch = useDebounce(search);
   const symbols = stats?.map((s) => s.symbol) ?? [];
-  const filtered = search
-    ? symbols.filter((s) => s.toLowerCase().includes(search.toLowerCase()))
+  const filtered = debouncedSearch
+    ? symbols.filter((s) => s.toLowerCase().includes(debouncedSearch.toLowerCase()))
     : symbols;
 
   return (

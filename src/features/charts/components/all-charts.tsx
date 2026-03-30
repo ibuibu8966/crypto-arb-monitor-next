@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useState, useMemo, memo } from "react";
 import { useRouter } from "next/navigation";
 import {
   AreaChart,
@@ -55,7 +55,7 @@ const PERIODS = [
   { label: "1Y", hours: 8760 },
 ];
 
-function MiniChart({
+const MiniChart = memo(function MiniChart({
   symbol,
   hours,
   onClick,
@@ -217,7 +217,7 @@ function MiniChart({
       )}
     </div>
   );
-}
+});
 
 export function AllCharts() {
   const router = useRouter();

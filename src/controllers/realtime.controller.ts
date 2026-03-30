@@ -8,7 +8,7 @@ export async function getRealtimeController() {
       headers: { "Cache-Control": "s-maxage=5, stale-while-revalidate=10" },
     });
   } catch (error) {
-    console.error("[realtime]", error);
+    // TODO: Sentry導入後に置き換え
     return NextResponse.json(
       { error: "データ取得に失敗しました" },
       { status: 500 }

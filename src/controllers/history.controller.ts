@@ -18,7 +18,7 @@ export async function getHistoryController(req: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors }, { status: 400 });
     }
-    console.error("[history]", error);
+    // TODO: Sentry導入後に置き換え
     return NextResponse.json(
       { error: "データ取得に失敗しました" },
       { status: 500 }

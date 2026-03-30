@@ -16,7 +16,7 @@ export async function getStatsController(req: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors }, { status: 400 });
     }
-    console.error("[stats]", error);
+    // TODO: Sentry導入後に置き換え
     return NextResponse.json(
       { error: "データ取得に失敗しました" },
       { status: 500 }
