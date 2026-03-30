@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useState, useMemo, memo } from "react";
+import { useState, useMemo, memo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   AreaChart,
@@ -25,7 +25,7 @@ async function fetchHistory(
   hours: number
 ): Promise<SpreadTickDTO[]> {
   const res = await fetch(
-    `/api/history?symbol=${encodeURIComponent(symbol)}&hours=${hours}&limit=500`
+    `/api/history?symbol=${encodeURIComponent(symbol)}&hours=${hours}&limit=100`
   );
   if (!res.ok) throw new Error("API error");
   return res.json();
@@ -55,6 +55,25 @@ const PERIODS = [
   { label: "1Y", hours: 8760 },
 ];
 
+/** 画面内に入ったかどうかを検知するフック */
+function useInView() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setInView(true); obs.disconnect(); } },
+      { rootMargin: "200px" }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  return { ref, inView };
+}
+
 const MiniChart = memo(function MiniChart({
   symbol,
   hours,
@@ -72,6 +91,8 @@ const MiniChart = memo(function MiniChart({
   crossings80: number;
   statsPosition: number;
 }) {
+  const { ref, inView } = useInView();
+
   const { data } = useQuery({
     queryKey: ["history", symbol, hours],
     queryFn: () => fetchHistory(symbol, hours),
@@ -79,6 +100,7 @@ const MiniChart = memo(function MiniChart({
     refetchInterval: 30 * 1000,
     retry: 2,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
+    enabled: inView,
   });
 
   const chartData = useMemo(() => {
@@ -127,6 +149,7 @@ const MiniChart = memo(function MiniChart({
 
   return (
     <div
+      ref={ref}
       className="bg-gray-900 border border-gray-800 rounded-lg p-2 sm:p-3 cursor-pointer hover:border-gray-600 transition-colors"
       onClick={onClick}
     >
@@ -146,9 +169,7 @@ const MiniChart = memo(function MiniChart({
         </span>
       </div>
       {chartData.length === 0 ? (
-        <div className="h-[200px] flex items-center justify-center text-gray-600 text-xs">
-          ...
-        </div>
+        <div className="h-[200px] bg-gray-800/50 rounded animate-pulse" />
       ) : (
         <ResponsiveContainer width="100%" height={200}>
           <AreaChart data={chartData} margin={{ left: 0, right: 5, top: 5, bottom: 0 }}>
@@ -341,6 +362,12 @@ export function AllCharts() {
         cols === 2 ? "grid-cols-1 sm:grid-cols-2" :
         "grid-cols-1"
       }`}>
+        {!stats && [...Array(6)].map((_, i) => (
+          <div key={i} className="bg-gray-900 border border-gray-800 rounded-lg p-3 animate-pulse">
+            <div className="h-4 w-48 bg-gray-800 rounded mb-3" />
+            <div className="h-[200px] bg-gray-800/50 rounded" />
+          </div>
+        ))}
         {filtered.map((s) => {
           return (
             <MiniChart
