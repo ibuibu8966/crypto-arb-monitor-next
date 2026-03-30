@@ -62,6 +62,7 @@ function MiniChart({
   bestPair,
   crossings20,
   crossings80,
+  statsPosition,
 }: {
   symbol: string;
   hours: number;
@@ -69,11 +70,13 @@ function MiniChart({
   bestPair: PairName;
   crossings20: number;
   crossings80: number;
+  statsPosition: number;
 }) {
   const { data } = useQuery({
     queryKey: ["history", symbol, hours],
     queryFn: () => fetchHistory(symbol, hours),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 5 * 1000,
+    refetchInterval: 10 * 1000,
   });
 
   const chartData = useMemo(() => {
@@ -111,23 +114,14 @@ function MiniChart({
     };
   }, [chartData]);
 
-  // 乖離率をチャートの最終データポイントから計算（見た目と完全一致）
-  const currentPosition = useMemo(() => {
-    if (chartData.length === 0) return null;
-    const lastValue = chartData[chartData.length - 1].v;
-    const range = dataMax - dataMin;
-    if (range === 0) return null;
-    return ((lastValue - dataMin) / range) * 100;
-  }, [chartData, dataMin, dataMax]);
+  const currentPosition = statsPosition;
 
   const posColor =
-    currentPosition != null
-      ? currentPosition >= 80 || currentPosition <= 20
-        ? "#22c55e"
-        : currentPosition >= 60 || currentPosition <= 40
-          ? "#f59e0b"
-          : "#6b7280"
-      : "#6b7280";
+    currentPosition >= 80 || currentPosition <= 20
+      ? "#22c55e"
+      : currentPosition >= 60 || currentPosition <= 40
+        ? "#f59e0b"
+        : "#6b7280";
 
   return (
     <div
@@ -136,14 +130,12 @@ function MiniChart({
     >
       <div className="text-xs font-bold text-gray-300 mb-1 truncate">
         {symbol}
-        {currentPosition != null && (
-          <span
-            className="ml-1.5 font-mono font-medium"
-            style={{ color: posColor }}
-          >
-            [{Math.round(currentPosition)}%]
-          </span>
-        )}
+        <span
+          className="ml-1.5 font-mono font-medium"
+          style={{ color: posColor }}
+        >
+          [{Math.round(currentPosition)}%]
+        </span>
         <span className="font-normal text-gray-500 ml-1">
           (<span className="text-red-400">↑80%:{crossings80}</span> / <span className="text-green-400">↓20%:{crossings20}</span>)
         </span>
@@ -233,10 +225,12 @@ export function AllCharts() {
   const [hours, setHours] = useState(24);
   const [minAvg, setMinAvg] = useState(0.01);
   const [maxCap, setMaxCap] = useState(10);
+  const [cols, setCols] = useState(1); // カード列数: 1, 2, 4
 
   const { data: stats } = useQuery({
     queryKey: ["stats", hours],
     queryFn: () => fetchStats(hours),
+    refetchInterval: 30 * 1000,
   });
 
 
@@ -255,7 +249,7 @@ export function AllCharts() {
   return (
     <div>
       {/* フィルター */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 bg-gray-900 border border-gray-800 rounded-lg p-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4 bg-gray-900 border border-gray-800 rounded-lg p-3">
         <div>
           <label className="text-xs text-gray-500 block mb-1">
             表示数: {count === 0 ? "全通貨" : count}
@@ -317,10 +311,34 @@ export function AllCharts() {
             className="w-full"
           />
         </div>
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">
+            列数
+          </label>
+          <div className="flex gap-1">
+            {[1, 2, 4].map((n) => (
+              <button
+                key={n}
+                onClick={() => setCols(n)}
+                className={`px-3 py-1 text-xs rounded cursor-pointer transition-colors ${
+                  cols === n
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                }`}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* チャートグリッド */}
-      <div className="grid grid-cols-1 gap-3">
+      <div className={`grid gap-3 ${
+        cols === 4 ? "grid-cols-2 lg:grid-cols-4" :
+        cols === 2 ? "grid-cols-1 sm:grid-cols-2" :
+        "grid-cols-1"
+      }`}>
         {filtered.map((s) => {
           return (
             <MiniChart
@@ -333,6 +351,7 @@ export function AllCharts() {
               bestPair={s.bestPair}
               crossings20={s.crossings20}
               crossings80={s.crossings80}
+              statsPosition={s.currentPosition}
             />
           );
         })}
