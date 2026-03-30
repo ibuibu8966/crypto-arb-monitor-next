@@ -18,7 +18,7 @@ export function useRealtimeWS() {
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const retryCountRef = useRef(0);
-  const retryTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const unmountedRef = useRef(false);
 
   const connect = useCallback(() => {
