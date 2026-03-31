@@ -403,10 +403,13 @@ export function AllCharts() {
           </span>
           <input
             type="range"
-            min={0}
-            max={50}
-            value={count}
-            onChange={(e) => setCount(Number(e.target.value))}
+            min={1}
+            max={51}
+            value={count === 0 ? 51 : count}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              setCount(v >= 51 ? 0 : v);
+            }}
             className="w-full accent-blue-500"
           />
         </div>
