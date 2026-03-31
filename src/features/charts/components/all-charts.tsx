@@ -249,6 +249,7 @@ export function AllCharts() {
   const [minAvg, setMinAvg] = useState(0.01);
   const [maxCap, setMaxCap] = useState(10);
   const [cols, setCols] = useState(1); // カード列数: 1, 2, 4
+  const [ranking, setRanking] = useState<"position" | "crossings" | "spreadMax" | "spreadMin">("position");
 
   const { data: stats } = useQuery({
     queryKey: ["stats", hours],
@@ -262,35 +263,25 @@ export function AllCharts() {
     const sorted = stats
       .filter((s) => s.avgSpread >= minAvg && s.maxSpread <= maxCap)
       .sort((a, b) => {
-        const distA = Math.abs(a.currentPosition - 50);
-        const distB = Math.abs(b.currentPosition - 50);
-        return distB - distA;
+        switch (ranking) {
+          case "crossings":
+            return (b.crossings80 + b.crossings20) - (a.crossings80 + a.crossings20);
+          case "spreadMax":
+            return b.maxSpread - a.maxSpread;
+          case "spreadMin":
+            return b.minSpread - a.minSpread;
+          case "position":
+          default:
+            return Math.abs(b.currentPosition - 50) - Math.abs(a.currentPosition - 50);
+        }
       });
     return count === 0 ? sorted : sorted.slice(0, count);
-  }, [stats, count, minAvg, maxCap]);
+  }, [stats, count, minAvg, maxCap, ranking]);
 
   return (
     <div>
       {/* フィルター */}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3 mb-4 bg-gray-900/80 backdrop-blur border border-gray-700/50 rounded-xl px-5 py-3.5">
-        {/* 表示数 */}
-        <div className="flex items-center gap-3 min-w-[160px]">
-          <span className="text-xs text-gray-400 whitespace-nowrap">
-            表示数 <span className="text-white font-medium">{count === 0 ? "ALL" : count}</span>
-          </span>
-          <input
-            type="range"
-            min={0}
-            max={50}
-            value={count}
-            onChange={(e) => setCount(Number(e.target.value))}
-            className="w-full accent-blue-500"
-          />
-        </div>
-
-        {/* 区切り線 */}
-        <div className="hidden sm:block w-px h-6 bg-gray-700" />
-
         {/* 期間 */}
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-400 mr-1">期間</span>
@@ -370,6 +361,52 @@ export function AllCharts() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* 区切り線 */}
+        <div className="hidden sm:block w-px h-6 bg-gray-700" />
+
+        {/* ランキング */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-400 mr-1">ランキング</span>
+          <div className="flex bg-gray-800/80 rounded-lg p-0.5">
+            {([
+              { key: "position", label: "位置" },
+              { key: "crossings", label: "到達回数" },
+              { key: "spreadMax", label: "幅(最大)" },
+              { key: "spreadMin", label: "幅(最小)" },
+            ] as const).map((r) => (
+              <button
+                key={r.key}
+                onClick={() => setRanking(r.key)}
+                className={`px-2.5 py-1 text-xs rounded-md cursor-pointer transition-all whitespace-nowrap ${
+                  ranking === r.key
+                    ? "bg-blue-600 text-white shadow-sm shadow-blue-600/30"
+                    : "text-gray-400 hover:text-gray-200"
+                }`}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 区切り線 */}
+        <div className="hidden sm:block w-px h-6 bg-gray-700" />
+
+        {/* 表示数 */}
+        <div className="flex items-center gap-3 min-w-[160px]">
+          <span className="text-xs text-gray-400 whitespace-nowrap">
+            表示数 <span className="text-white font-medium">{count === 0 ? "ALL" : count}</span>
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={50}
+            value={count}
+            onChange={(e) => setCount(Number(e.target.value))}
+            className="w-full accent-blue-500"
+          />
         </div>
       </div>
 
