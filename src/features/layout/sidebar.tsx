@@ -132,7 +132,7 @@ export function Sidebar() {
                 <p className="text-xs text-gray-600 px-2 py-1">該当なし</p>
               ) : (
                 filtered.map((sym, i) => {
-                  const href = `/symbol/${sym}`;
+                  const href = `/symbol/${encodeURIComponent(sym)}`;
                   const active = decodeURIComponent(pathname) === `/symbol/${sym}`;
                   return (
                     <Link
