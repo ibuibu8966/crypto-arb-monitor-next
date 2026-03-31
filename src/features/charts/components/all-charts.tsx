@@ -272,33 +272,37 @@ export function AllCharts() {
   return (
     <div>
       {/* フィルター */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4 bg-gray-900 border border-gray-800 rounded-lg p-3">
-        <div>
-          <label className="text-xs text-gray-500 block mb-1">
-            表示数: {count === 0 ? "全通貨" : count}
-          </label>
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 mb-4 bg-gray-900/80 backdrop-blur border border-gray-700/50 rounded-xl px-5 py-3.5">
+        {/* 表示数 */}
+        <div className="flex items-center gap-3 min-w-[160px]">
+          <span className="text-xs text-gray-400 whitespace-nowrap">
+            表示数 <span className="text-white font-medium">{count === 0 ? "ALL" : count}</span>
+          </span>
           <input
             type="range"
             min={0}
             max={50}
             value={count}
             onChange={(e) => setCount(Number(e.target.value))}
-            className="w-full"
+            className="w-full accent-blue-500"
           />
         </div>
-        <div>
-          <label className="text-xs text-gray-500 block mb-1">
-            期間
-          </label>
-          <div className="flex gap-1">
+
+        {/* 区切り線 */}
+        <div className="hidden sm:block w-px h-6 bg-gray-700" />
+
+        {/* 期間 */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-400 mr-1">期間</span>
+          <div className="flex bg-gray-800/80 rounded-lg p-0.5">
             {PERIODS.map((p) => (
               <button
                 key={p.hours}
                 onClick={() => setHours(p.hours)}
-                className={`px-2 py-1 text-xs rounded cursor-pointer transition-colors ${
+                className={`px-2.5 py-1 text-xs rounded-md cursor-pointer transition-all ${
                   hours === p.hours
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                    ? "bg-blue-600 text-white shadow-sm shadow-blue-600/30"
+                    : "text-gray-400 hover:text-gray-200"
                 }`}
               >
                 {p.label}
@@ -306,10 +310,15 @@ export function AllCharts() {
             ))}
           </div>
         </div>
-        <div>
-          <label className="text-xs text-gray-500 block mb-1">
-            最小平均: {minAvg}%
-          </label>
+
+        {/* 区切り線 */}
+        <div className="hidden sm:block w-px h-6 bg-gray-700" />
+
+        {/* 最小平均 */}
+        <div className="flex items-center gap-3 min-w-[180px]">
+          <span className="text-xs text-gray-400 whitespace-nowrap">
+            最小平均 <span className="text-white font-medium">{minAvg}%</span>
+          </span>
           <input
             type="range"
             min={0}
@@ -317,13 +326,18 @@ export function AllCharts() {
             step={0.01}
             value={minAvg}
             onChange={(e) => setMinAvg(Number(e.target.value))}
-            className="w-full"
+            className="w-full accent-blue-500"
           />
         </div>
-        <div>
-          <label className="text-xs text-gray-500 block mb-1">
-            最大上限: {maxCap}%
-          </label>
+
+        {/* 区切り線 */}
+        <div className="hidden sm:block w-px h-6 bg-gray-700" />
+
+        {/* 最大上限 */}
+        <div className="flex items-center gap-3 min-w-[180px]">
+          <span className="text-xs text-gray-400 whitespace-nowrap">
+            最大上限 <span className="text-white font-medium">{maxCap}%</span>
+          </span>
           <input
             type="range"
             min={1}
@@ -331,22 +345,25 @@ export function AllCharts() {
             step={1}
             value={maxCap}
             onChange={(e) => setMaxCap(Number(e.target.value))}
-            className="w-full"
+            className="w-full accent-blue-500"
           />
         </div>
-        <div>
-          <label className="text-xs text-gray-500 block mb-1">
-            列数
-          </label>
-          <div className="flex gap-1">
+
+        {/* 区切り線 */}
+        <div className="hidden sm:block w-px h-6 bg-gray-700" />
+
+        {/* 列数 */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-400 mr-1">列数</span>
+          <div className="flex bg-gray-800/80 rounded-lg p-0.5">
             {[1, 2, 4].map((n) => (
               <button
                 key={n}
                 onClick={() => setCols(n)}
-                className={`px-3 py-1 text-xs rounded cursor-pointer transition-colors ${
+                className={`px-3 py-1 text-xs rounded-md cursor-pointer transition-all ${
                   cols === n
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                    ? "bg-blue-600 text-white shadow-sm shadow-blue-600/30"
+                    : "text-gray-400 hover:text-gray-200"
                 }`}
               >
                 {n}
