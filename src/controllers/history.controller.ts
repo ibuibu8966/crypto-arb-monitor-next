@@ -6,7 +6,7 @@ import { captureError } from "@/lib/logger";
 const querySchema = z.object({
   symbol: z.string().min(1),
   hours: z.coerce.number().min(1).max(8760).default(24),
-  limit: z.coerce.number().min(1).max(2000).default(500),
+  limit: z.coerce.number().min(1).max(100000).default(500),
 });
 
 export async function getHistoryController(req: NextRequest) {
