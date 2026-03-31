@@ -24,8 +24,8 @@ async function fetchHistory(
   symbol: string,
   hours: number
 ): Promise<SpreadTickDTO[]> {
-  // 期間に応じたデータ点数（5秒間隔: 1h=720, 24h=17280）
-  const limit = Math.min(hours * 720, 100000);
+  // 一覧ページのミニチャートは500件で十分（軽量化）
+  const limit = 500;
   const res = await fetch(
     `/api/history?symbol=${encodeURIComponent(symbol)}&hours=${hours}&limit=${limit}`
   );
