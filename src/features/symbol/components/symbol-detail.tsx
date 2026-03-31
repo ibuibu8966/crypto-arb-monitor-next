@@ -55,6 +55,21 @@ const PRICE_CONFIG: { key: PriceKey; label: string; color: string }[] = [
   { key: "coinex", label: "CoinEX", color: EXCHANGE_COLORS.coinex },
 ];
 
+/** シンボル名から各取引所のURLを生成 */
+function getExchangeUrl(exchange: PriceKey, symbol: string): string {
+  // "MON/USDT:USDT" → base="MON", quote="USDT"
+  const [pair] = symbol.split(":");
+  const [base, quote] = pair.split("/");
+  switch (exchange) {
+    case "mexc":
+      return `https://www.mexc.com/ja-JP/futures/${base}_${quote}`;
+    case "bitget":
+      return `https://www.bitget.com/ja/spot/${base}${quote}`;
+    case "coinex":
+      return `https://www.coinex.com/ja/exchange/${base}-${quote}`;
+  }
+}
+
 const MIN_VISIBLE_POINTS = 10;
 const ZOOM_FACTOR = 0.15;
 
@@ -705,15 +720,18 @@ export function SymbolDetail({ symbol }: Props) {
           {PRICE_CONFIG.map((cfg) => {
             const active = activePrices.includes(cfg.key);
             return (
-              <span
+              <a
                 key={cfg.key}
-                className={`px-3 py-1 rounded text-xs font-medium ${
+                href={getExchangeUrl(cfg.key, symbol)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`px-3 py-1 rounded text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity ${
                   active ? "text-white" : "bg-gray-800/20 text-gray-700"
                 }`}
                 style={active ? { backgroundColor: cfg.color + "33", color: cfg.color } : {}}
               >
                 {cfg.label}
-              </span>
+              </a>
             );
           })}
         </div>
