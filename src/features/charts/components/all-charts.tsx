@@ -24,10 +24,8 @@ async function fetchHistory(
   symbol: string,
   hours: number
 ): Promise<SpreadTickDTO[]> {
-  // 一覧ページのミニチャートは500件で十分（軽量化）
-  const limit = 500;
   const res = await fetch(
-    `/api/history?symbol=${encodeURIComponent(symbol)}&hours=${hours}&limit=${limit}`
+    `/api/history?symbol=${encodeURIComponent(symbol)}&hours=${hours}`
   );
   if (!res.ok) throw new Error("API error");
   return res.json();

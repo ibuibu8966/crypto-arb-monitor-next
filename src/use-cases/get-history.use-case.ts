@@ -3,10 +3,9 @@ import type { SpreadTickDTO } from "@/types";
 
 export async function getHistoryUseCase(
   symbol: string,
-  hours: number = 24,
-  limit: number = 500
+  hours: number = 24
 ): Promise<SpreadTickDTO[]> {
-  const rows = await SpreadRepository.findHistory(symbol, hours, limit);
+  const rows = await SpreadRepository.findHistory(symbol, hours);
 
   return rows.map((r) => ({
     id: r.id,

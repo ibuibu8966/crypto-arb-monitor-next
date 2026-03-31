@@ -20,7 +20,7 @@ export default async function SymbolPage({ params }: Props) {
     }),
     queryClient.prefetchQuery({
       queryKey: ["history", decoded, 24],
-      queryFn: () => getHistoryUseCase(decoded, 24, 500),
+      queryFn: () => getHistoryUseCase(decoded, 24),
     }),
   ]);
 

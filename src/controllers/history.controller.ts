@@ -6,14 +6,13 @@ import { captureError } from "@/lib/logger";
 const querySchema = z.object({
   symbol: z.string().min(1),
   hours: z.coerce.number().min(1).max(8760).default(24),
-  limit: z.coerce.number().min(1).max(100000).default(500),
 });
 
 export async function getHistoryController(req: NextRequest) {
   try {
     const params = Object.fromEntries(req.nextUrl.searchParams);
-    const { symbol, hours, limit } = querySchema.parse(params);
-    const data = await getHistoryUseCase(symbol, hours, limit);
+    const { symbol, hours } = querySchema.parse(params);
+    const data = await getHistoryUseCase(symbol, hours);
     return NextResponse.json(data);
   } catch (error) {
     if (error instanceof z.ZodError) {

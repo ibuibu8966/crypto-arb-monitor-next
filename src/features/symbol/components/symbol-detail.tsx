@@ -92,9 +92,8 @@ async function fetchHistory(
   symbol: string,
   hours: number
 ): Promise<SpreadTickDTO[]> {
-  const limit = Math.min(hours * 720, 100000);
   const res = await fetch(
-    `/api/history?symbol=${encodeURIComponent(symbol)}&hours=${hours}&limit=${limit}`
+    `/api/history?symbol=${encodeURIComponent(symbol)}&hours=${hours}`
   );
   if (!res.ok) throw new Error("API error");
   return res.json();

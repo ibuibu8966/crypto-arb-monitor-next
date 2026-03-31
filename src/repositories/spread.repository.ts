@@ -26,40 +26,28 @@ export class SpreadRepository {
     return result;
   }
 
-  /** 指定銘柄の時系列データ（全期間を均等にダウンサンプリングしてlimit件返す） */
-  static async findHistory(symbol: string, hours: number, limit: number) {
+  /** 指定銘柄の時系列データ（時間範囲内の全データを返す） */
+  static async findHistory(symbol: string, hours: number) {
     const since = new Date(Date.now() - hours * 60 * 60 * 1000);
-    const rows = await prisma.$queryRaw<
-      {
-        id: number;
-        symbol: string;
-        timestamp: Date;
-        mexc: number | null;
-        bitget: number | null;
-        coinex: number | null;
-        mx_bg_pct: number | null;
-        mx_cx_pct: number | null;
-        bg_cx_pct: number | null;
-        max_spread_pct: number | null;
-      }[]
-    >(Prisma.sql`
-      WITH numbered AS (
-        SELECT id, symbol, timestamp, mexc, bitget, coinex,
-               mx_bg_pct, mx_cx_pct, bg_cx_pct, max_spread_pct,
-               ROW_NUMBER() OVER (ORDER BY timestamp) as rn,
-               COUNT(*) OVER () as total
-        FROM spread_log
-        WHERE symbol = ${symbol} AND timestamp >= ${since}
-      )
-      SELECT id, symbol, timestamp, mexc, bitget, coinex,
-             mx_bg_pct, mx_cx_pct, bg_cx_pct, max_spread_pct
-      FROM numbered
-      WHERE total <= ${limit}
-         OR rn % GREATEST(total / ${limit}, 1) = 0
-         OR rn = total
-      ORDER BY timestamp
-      LIMIT ${limit}
-    `);
+    const rows = await prisma.spread_log.findMany({
+      where: {
+        symbol,
+        timestamp: { gte: since },
+      },
+      select: {
+        id: true,
+        symbol: true,
+        timestamp: true,
+        mexc: true,
+        bitget: true,
+        coinex: true,
+        mx_bg_pct: true,
+        mx_cx_pct: true,
+        bg_cx_pct: true,
+        max_spread_pct: true,
+      },
+      orderBy: { timestamp: "asc" },
+    });
     return rows;
   }
 
