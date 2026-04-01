@@ -349,11 +349,11 @@ export function AllCharts() {
           <span className="text-xs text-gray-400 mr-1">ランキング</span>
           <div className="flex bg-gray-800/80 rounded-lg p-0.5">
             {([
-              { key: "arbScore", label: "スコア" },
-              { key: "position", label: "位置" },
-              { key: "crossings", label: "到達回数" },
-              { key: "spreadMax", label: "幅(最大)" },
-              { key: "spreadMin", label: "幅(最小)" },
+              { key: "arbScore", label: "総合スコア" },
+              { key: "position", label: "エントリー機会" },
+              { key: "crossings", label: "20%/80%到達回数" },
+              { key: "spreadMax", label: "最大値幅" },
+              { key: "spreadMin", label: "最小値幅" },
             ] as const).map((r) => (
               <button
                 key={r.key}
@@ -376,7 +376,7 @@ export function AllCharts() {
         {/* 値幅フィルター */}
         <div className="flex items-center gap-3 min-w-[180px]">
           <span className="text-xs text-gray-400 whitespace-nowrap">
-            値幅(100-0%) <span className="text-white font-medium">{minBandWidth.toFixed(2)}%</span>
+            最小値幅フィルター <span className="text-white font-medium">{minBandWidth.toFixed(2)}%</span>
           </span>
           <input
             type="range"
