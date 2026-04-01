@@ -82,6 +82,7 @@ const MiniChart = memo(function MiniChart({
   crossings20,
   crossings80,
   statsPosition,
+  arbScore,
 }: {
   symbol: string;
   hours: number;
@@ -90,6 +91,7 @@ const MiniChart = memo(function MiniChart({
   crossings20: number;
   crossings80: number;
   statsPosition: number;
+  arbScore?: number;
 }) {
   const { ref, inView } = useInView();
 
@@ -167,6 +169,11 @@ const MiniChart = memo(function MiniChart({
         <span className="font-normal text-gray-600 ml-1">
           {PAIR_LABELS[bestPair]}
         </span>
+        {arbScore != null && arbScore > 0 && (
+          <span className="font-normal text-yellow-500 ml-1">
+            ★{arbScore.toFixed(2)}
+          </span>
+        )}
       </div>
       {chartData.length === 0 ? (
         <div className="h-[200px] bg-gray-800/50 rounded animate-pulse" />
@@ -466,6 +473,7 @@ export function AllCharts() {
               crossings20={s.crossings20}
               crossings80={s.crossings80}
               statsPosition={s.currentPosition}
+              arbScore={s.arbScore}
             />
           );
         })}
