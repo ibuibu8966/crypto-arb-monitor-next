@@ -50,13 +50,3 @@ model spread_stats_cache {
   @@unique([symbol, time_range])
 }
 
-/// 履歴キャッシュ（findHistory相当の事前計算結果、JSONB）
-model spread_history_cache {
-  id            Int       @id @default(autoincrement())
-  symbol        String    @db.VarChar(50)
-  time_range    String    @db.VarChar(10)
-  data          Json?
-  calculated_at DateTime? @db.Timestamptz(6)
-
-  @@unique([symbol, time_range])
-}

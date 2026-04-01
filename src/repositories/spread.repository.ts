@@ -36,37 +36,8 @@ export class SpreadRepository {
     return result;
   }
 
-  /** 指定銘柄の時系列データ（キャッシュから取得。キャッシュなければ直接クエリ） */
+  /** 指定銘柄の時系列データ（spread_logから直接取得） */
   static async findHistory(symbol: string, hours: number) {
-    const timeRange = HOURS_TO_RANGE[hours];
-
-    // キャッシュテーブルから取得を試みる
-    if (timeRange) {
-      const cached = await prisma.spread_history_cache.findUnique({
-        where: { symbol_time_range: { symbol, time_range: timeRange } },
-      });
-      if (cached?.data) {
-        // JSONB → 配列に変換して返す
-        const rows = cached.data as Array<{
-          id: number;
-          symbol: string;
-          timestamp: string;
-          mexc: number | null;
-          bitget: number | null;
-          coinex: number | null;
-          mx_bg_pct: number | null;
-          mx_cx_pct: number | null;
-          bg_cx_pct: number | null;
-          max_spread_pct: number | null;
-        }>;
-        return rows.map((r) => ({
-          ...r,
-          timestamp: new Date(r.timestamp),
-        }));
-      }
-    }
-
-    // キャッシュがなければ従来通り直接クエリ（フォールバック）
     const since = new Date(Date.now() - hours * 60 * 60 * 1000);
     const rows = await prisma.spread_log.findMany({
       where: {
