@@ -273,7 +273,7 @@ export function AllCharts() {
     if (!stats) return [];
     const sorted = stats
       .filter((s) => {
-        if (minBandWidth > 0 && (s.signedMax - s.signedMin) * 0.6 < minBandWidth) return false;
+        if (minBandWidth > 0 && (s.signedMax - s.signedMin) < minBandWidth) return false;
         return true;
       })
       .sort((a, b) => {
@@ -376,7 +376,7 @@ export function AllCharts() {
         {/* 値幅フィルター */}
         <div className="flex items-center gap-3 min-w-[180px]">
           <span className="text-xs text-gray-400 whitespace-nowrap">
-            値幅(80-20%) <span className="text-white font-medium">{minBandWidth.toFixed(2)}%</span>
+            値幅(100-0%) <span className="text-white font-medium">{minBandWidth.toFixed(2)}%</span>
           </span>
           <input
             type="range"
