@@ -249,7 +249,7 @@ export function AllCharts() {
   const [minAvg, setMinAvg] = useState(0.01);
   const [maxCap, setMaxCap] = useState(10);
   const [cols, setCols] = useState(1); // カード列数: 1, 2, 4
-  const [ranking, setRanking] = useState<"position" | "crossings" | "spreadMax" | "spreadMin">("position");
+  const [ranking, setRanking] = useState<"position" | "crossings" | "spreadMax" | "spreadMin" | "arbScore">("position");
   const [minBandWidth, setMinBandWidth] = useState(0);
 
   const { data: stats } = useQuery({
@@ -276,6 +276,8 @@ export function AllCharts() {
             return b.maxSpread - a.maxSpread;
           case "spreadMin":
             return b.minSpread - a.minSpread;
+          case "arbScore":
+            return (b.arbScore ?? 0) - (a.arbScore ?? 0);
           case "position":
           default:
             return Math.abs(b.currentPosition - 50) - Math.abs(a.currentPosition - 50);
@@ -377,6 +379,7 @@ export function AllCharts() {
           <span className="text-xs text-gray-400 mr-1">ランキング</span>
           <div className="flex bg-gray-800/80 rounded-lg p-0.5">
             {([
+              { key: "arbScore", label: "スコア" },
               { key: "position", label: "位置" },
               { key: "crossings", label: "到達回数" },
               { key: "spreadMax", label: "幅(最大)" },
