@@ -1,10 +1,20 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import type { PairName } from "@/types";
+
+/** hours → キャッシュテーブルのtime_rangeラベル変換 */
+const HOURS_TO_RANGE: Record<number, string> = {
+  1: "1h",
+  4: "4h",
+  12: "12h",
+  24: "24h",
+  168: "1W",
+  720: "1M",
+};
 
 export class SpreadRepository {
-  /** 最新タイムスタンプの全銘柄データを取得 */
+  /** 最新タイムスタンプの全銘柄データを取得（リアルタイム） */
   static async findLatest() {
-    // raw queryで最新タイムスタンプのデータを一括取得（タイムスタンプ精度の問題を回避）
     const result = await prisma.$queryRaw<
       {
         id: number;
@@ -26,8 +36,37 @@ export class SpreadRepository {
     return result;
   }
 
-  /** 指定銘柄の時系列データ（時間範囲内の全データを返す） */
+  /** 指定銘柄の時系列データ（キャッシュから取得。キャッシュなければ直接クエリ） */
   static async findHistory(symbol: string, hours: number) {
+    const timeRange = HOURS_TO_RANGE[hours];
+
+    // キャッシュテーブルから取得を試みる
+    if (timeRange) {
+      const cached = await prisma.spread_history_cache.findUnique({
+        where: { symbol_time_range: { symbol, time_range: timeRange } },
+      });
+      if (cached?.data) {
+        // JSONB → 配列に変換して返す
+        const rows = cached.data as Array<{
+          id: number;
+          symbol: string;
+          timestamp: string;
+          mexc: number | null;
+          bitget: number | null;
+          coinex: number | null;
+          mx_bg_pct: number | null;
+          mx_cx_pct: number | null;
+          bg_cx_pct: number | null;
+          max_spread_pct: number | null;
+        }>;
+        return rows.map((r) => ({
+          ...r,
+          timestamp: new Date(r.timestamp),
+        }));
+      }
+    }
+
+    // キャッシュがなければ従来通り直接クエリ（フォールバック）
     const since = new Date(Date.now() - hours * 60 * 60 * 1000);
     const rows = await prisma.spread_log.findMany({
       where: {
@@ -51,11 +90,44 @@ export class SpreadRepository {
     return rows;
   }
 
-  /** 統計情報（直近N時間）— 到達回数・bestPair含む（全計算をSQL内で完結） */
+  /** 統計情報（キャッシュから取得。キャッシュなければ直接クエリ） */
   static async getStats(hours: number) {
+    const timeRange = HOURS_TO_RANGE[hours];
+
+    // キャッシュテーブルから取得を試みる
+    if (timeRange) {
+      const cached = await prisma.spread_stats_cache.findMany({
+        where: { time_range: timeRange },
+        orderBy: { avg_spread: "desc" },
+      });
+
+      if (cached.length > 0) {
+        return cached.map((r) => ({
+          symbol: r.symbol,
+          avgSpread: r.avg_spread ?? 0,
+          maxSpread: r.max_spread ?? 0,
+          minSpread: r.min_spread ?? 0,
+          stdSpread: r.std_spread ?? 0,
+          count: r.count ?? 0,
+          bestPair: (r.best_pair ?? "mx_bg") as PairName,
+          crossings20: r.crossings_20 ?? 0,
+          crossings80: r.crossings_80 ?? 0,
+          totalCrossings: (r.crossings_20 ?? 0) + (r.crossings_80 ?? 0),
+          signedMin: r.signed_min ?? 0,
+          signedMax: r.signed_max ?? 0,
+          currentPosition: r.current_pos ?? 50,
+        }));
+      }
+    }
+
+    // キャッシュがなければ従来通り直接クエリ（フォールバック）
+    return SpreadRepository._getStatsDirectQuery(hours);
+  }
+
+  /** 直接クエリ版getStats（フォールバック用） */
+  private static async _getStatsDirectQuery(hours: number) {
     const since = new Date(Date.now() - hours * 60 * 60 * 1000);
 
-    // 統計 + クロッシング + 最新値を全てSQLで計算（メモリ節約）
     const result = await prisma.$queryRaw<
       {
         symbol: string;
@@ -164,7 +236,6 @@ export class SpreadRepository {
         },
       ];
 
-      // bestPair = クロッシング合計が最大のペア
       let best = pairs[0];
       for (const p of pairs) {
         if (p.c20 + p.c80 > best.c20 + best.c80) best = p;
