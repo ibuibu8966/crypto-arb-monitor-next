@@ -253,8 +253,6 @@ export function AllCharts() {
   const router = useRouter();
   const [count, setCount] = useState(20); // デフォルト20銘柄（DB負荷軽減）
   const [hours, setHours] = useState(24);
-  const [minAvg, setMinAvg] = useState(0.01);
-  const [maxCap, setMaxCap] = useState(10);
   const [cols, setCols] = useState(1); // カード列数: 1, 2, 4
   const [ranking, setRanking] = useState<"position" | "crossings" | "spreadMax" | "spreadMin" | "arbScore">("position");
   const [minBandWidth, setMinBandWidth] = useState(0);
@@ -270,8 +268,6 @@ export function AllCharts() {
     if (!stats) return [];
     const sorted = stats
       .filter((s) => {
-        if (s.avgSpread < minAvg) return false;
-        if (s.maxSpread > maxCap) return false;
         if (minBandWidth > 0 && (s.signedMax - s.signedMin) * 0.6 < minBandWidth) return false;
         return true;
       })
@@ -291,7 +287,7 @@ export function AllCharts() {
         }
       });
     return count === 0 ? sorted : sorted.slice(0, count);
-  }, [stats, count, minAvg, maxCap, ranking]);
+  }, [stats, count, minBandWidth, ranking]);
 
   return (
     <div>
@@ -315,44 +311,6 @@ export function AllCharts() {
               </button>
             ))}
           </div>
-        </div>
-
-        {/* 区切り線 */}
-        <div className="hidden sm:block w-px h-6 bg-gray-700" />
-
-        {/* 最小平均 */}
-        <div className="flex items-center gap-3 min-w-[180px]">
-          <span className="text-xs text-gray-400 whitespace-nowrap">
-            最小平均 <span className="text-white font-medium">{minAvg}%</span>
-          </span>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            value={minAvg}
-            onChange={(e) => setMinAvg(Number(e.target.value))}
-            className="w-full accent-blue-500"
-          />
-        </div>
-
-        {/* 区切り線 */}
-        <div className="hidden sm:block w-px h-6 bg-gray-700" />
-
-        {/* 最大上限 */}
-        <div className="flex items-center gap-3 min-w-[180px]">
-          <span className="text-xs text-gray-400 whitespace-nowrap">
-            最大上限 <span className="text-white font-medium">{maxCap}%</span>
-          </span>
-          <input
-            type="range"
-            min={1}
-            max={50}
-            step={1}
-            value={maxCap}
-            onChange={(e) => setMaxCap(Number(e.target.value))}
-            className="w-full accent-blue-500"
-          />
         </div>
 
         {/* 区切り線 */}
