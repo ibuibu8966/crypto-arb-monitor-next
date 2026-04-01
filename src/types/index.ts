@@ -39,4 +39,10 @@ export type StatsDTO = {
   signedMin: number;
   signedMax: number;
   currentPosition: number;
+  reversionProb: number;
+  halfLife: number;
+  costRatio: number;
+  execVolume: number;
+  volStability: number;
+  arbScore: number;
 };

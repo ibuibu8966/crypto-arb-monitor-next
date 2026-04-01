@@ -116,6 +116,12 @@ export class SpreadRepository {
           signedMin: r.signed_min ?? 0,
           signedMax: r.signed_max ?? 0,
           currentPosition: r.current_pos ?? 50,
+          reversionProb: (r as unknown as { reversion_prob?: number }).reversion_prob ?? 0,
+          halfLife:      (r as unknown as { half_life?: number }).half_life ?? 0,
+          costRatio:     (r as unknown as { cost_ratio?: number }).cost_ratio ?? 0,
+          execVolume:    (r as unknown as { exec_volume?: number }).exec_volume ?? 0,
+          volStability:  (r as unknown as { vol_stability?: number }).vol_stability ?? 0,
+          arbScore:      (r as unknown as { arb_score?: number }).arb_score ?? 0,
         }));
       }
     }
@@ -261,6 +267,12 @@ export class SpreadRepository {
         signedMin: best.min,
         signedMax: best.max,
         currentPosition,
+        reversionProb: 0,
+        halfLife: 0,
+        costRatio: 0,
+        execVolume: 0,
+        volStability: 0,
+        arbScore: 0,
       };
     });
   }

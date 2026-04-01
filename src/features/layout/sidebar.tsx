@@ -10,6 +10,7 @@ import type { StatsDTO } from "@/types";
 const NAV_ITEMS = [
   { href: "/", label: "ダッシュボード", icon: "📊" },
   { href: "/charts", label: "全銘柄チャート", icon: "📈" },
+  { href: "/ranking", label: "スコアランキング", icon: "🏆" },
   { href: "/logs", label: "ログ", icon: "📋" },
 ];
 

@@ -250,6 +250,7 @@ export function AllCharts() {
   const [maxCap, setMaxCap] = useState(10);
   const [cols, setCols] = useState(1); // カード列数: 1, 2, 4
   const [ranking, setRanking] = useState<"position" | "crossings" | "spreadMax" | "spreadMin">("position");
+  const [minBandWidth, setMinBandWidth] = useState(0);
 
   const { data: stats } = useQuery({
     queryKey: ["stats", hours],
@@ -261,7 +262,12 @@ export function AllCharts() {
   const filtered = useMemo(() => {
     if (!stats) return [];
     const sorted = stats
-      .filter((s) => s.avgSpread >= minAvg && s.maxSpread <= maxCap)
+      .filter((s) => {
+        if (s.avgSpread < minAvg) return false;
+        if (s.maxSpread > maxCap) return false;
+        if (minBandWidth > 0 && (s.signedMax - s.signedMin) * 0.6 < minBandWidth) return false;
+        return true;
+      })
       .sort((a, b) => {
         switch (ranking) {
           case "crossings":
@@ -389,6 +395,25 @@ export function AllCharts() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* 区切り線 */}
+        <div className="hidden sm:block w-px h-6 bg-gray-700" />
+
+        {/* 値幅フィルター */}
+        <div className="flex items-center gap-3 min-w-[180px]">
+          <span className="text-xs text-gray-400 whitespace-nowrap">
+            値幅(80-20%) <span className="text-white font-medium">{minBandWidth.toFixed(2)}%</span>
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={minBandWidth}
+            onChange={(e) => setMinBandWidth(Number(e.target.value))}
+            className="w-full accent-blue-500 cursor-pointer"
+          />
         </div>
 
         {/* 区切り線 */}
