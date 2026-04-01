@@ -259,7 +259,12 @@ export function AllCharts() {
 
   const { data: stats } = useQuery({
     queryKey: ["stats", hours],
-    queryFn: () => fetchStats(hours),
+    queryFn: async (ctx) => {
+      const data = await fetchStats((ctx.queryKey[1] as number));
+      const withScore = data.filter(s => (s.arbScore ?? 0) > 0);
+      console.log(`[arbScore debug] total=${data.length} withScore=${withScore.length} top5=`, data.slice(0,5).map(s => ({ symbol: s.symbol, arbScore: s.arbScore })));
+      return data;
+    },
     refetchInterval: 30 * 1000,
   });
 
