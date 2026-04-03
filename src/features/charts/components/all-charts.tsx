@@ -414,7 +414,7 @@ export function AllCharts() {
             crossings80={s.crossings80}
             statsPosition={s.currentPosition}
             arbScore={s.arbScore}
-            delayMs={i * 200}
+            delayMs={i * 500}
           />
         ))}
       </div>
