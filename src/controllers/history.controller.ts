@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getHistoryUseCase } from "@/use-cases/get-history.use-case";
+import { getCachedHistory, setCacheHistory } from "@/lib/stats-cache";
 import { captureError } from "@/lib/logger";
 
 const querySchema = z.object({
@@ -12,8 +13,21 @@ export async function getHistoryController(req: NextRequest) {
   try {
     const params = Object.fromEntries(req.nextUrl.searchParams);
     const { symbol, hours } = querySchema.parse(params);
+
+    // メモリキャッシュチェック
+    const cached = getCachedHistory(symbol, hours);
+    if (cached) {
+      return NextResponse.json(cached, {
+        headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=30" },
+      });
+    }
+
     const data = await getHistoryUseCase(symbol, hours);
-    return NextResponse.json(data);
+    setCacheHistory(symbol, hours, data);
+
+    return NextResponse.json(data, {
+      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=30" },
+    });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors }, { status: 400 });
