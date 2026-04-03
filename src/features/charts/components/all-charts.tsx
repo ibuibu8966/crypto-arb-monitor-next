@@ -15,7 +15,9 @@ import {
 import type { StatsDTO, SpreadTickDTO, PairName } from "@/types";
 
 async function fetchStats(hours: number): Promise<StatsDTO[]> {
-  const res = await fetch(`/api/stats?hours=${hours}`);
+  // 24hはfast API（事前計算済みキャッシュから一発取得）
+  const url = hours === 24 ? "/api/fast-stats" : `/api/stats?hours=${hours}`;
+  const res = await fetch(url);
   if (!res.ok) throw new Error("API error");
   return res.json();
 }
@@ -27,6 +29,24 @@ async function fetchHistory(
   const res = await fetch(
     `/api/history?symbol=${encodeURIComponent(symbol)}&hours=${hours}`
   );
+  if (!res.ok) throw new Error("API error");
+  return res.json();
+}
+
+/** 全銘柄のヒストリーを一括取得（24h専用） */
+type HistoryCacheEntry = {
+  t: string;
+  mexc: number | null;
+  bitget: number | null;
+  coinex: number | null;
+  mxBg: number | null;
+  mxCx: number | null;
+  bgCx: number | null;
+  max: number | null;
+};
+
+async function fetchAllHistory(): Promise<Record<string, HistoryCacheEntry[]>> {
+  const res = await fetch("/api/fast-history");
   if (!res.ok) throw new Error("API error");
   return res.json();
 }
@@ -65,6 +85,7 @@ const MiniChart = memo(function MiniChart({
   statsPosition,
   arbScore,
   delayMs = 0,
+  cachedHistory,
 }: {
   symbol: string;
   hours: number;
@@ -75,14 +96,17 @@ const MiniChart = memo(function MiniChart({
   statsPosition: number;
   arbScore?: number;
   delayMs?: number;
+  cachedHistory?: HistoryCacheEntry[];
 }) {
-  const [ready, setReady] = useState(delayMs === 0);
+  const hasCached = !!cachedHistory;
+
+  const [ready, setReady] = useState(hasCached || delayMs === 0);
   useEffect(() => {
-    if (delayMs > 0) {
+    if (!hasCached && delayMs > 0) {
       const t = setTimeout(() => setReady(true), delayMs);
       return () => clearTimeout(t);
     }
-  }, [delayMs]);
+  }, [delayMs, hasCached]);
 
   const { data } = useQuery({
     queryKey: ["history", symbol, hours],
@@ -91,10 +115,20 @@ const MiniChart = memo(function MiniChart({
     refetchInterval: 30 * 1000,
     retry: 2,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
-    enabled: ready,
+    enabled: ready && !hasCached,
   });
 
   const chartData = useMemo(() => {
+    // 24h事前計算済みキャッシュがあればそれを使う
+    if (cachedHistory) {
+      return cachedHistory.map((r) => {
+        const pairVal = bestPair === "mx_bg" ? r.mxBg : bestPair === "mx_cx" ? r.mxCx : r.bgCx;
+        return {
+          t: new Date(r.t).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }),
+          v: pairVal ?? 0,
+        };
+      });
+    }
     if (!data) return [];
     return data.map((r) => ({
       t: new Date(r.timestamp).toLocaleTimeString("ja-JP", {
@@ -103,7 +137,7 @@ const MiniChart = memo(function MiniChart({
       }),
       v: getPairValue(r, bestPair),
     }));
-  }, [data, bestPair]);
+  }, [data, bestPair, cachedHistory]);
 
   const { yMin, yMax, line20, line80, yTicks, dataMin, dataMax } = useMemo(() => {
     if (chartData.length === 0)
@@ -245,6 +279,8 @@ export function AllCharts() {
   const [ranking, setRanking] = useState<"position" | "crossings" | "spreadMax" | "spreadMin" | "arbScore">("arbScore");
   const [minBandWidth, setMinBandWidth] = useState(0);
 
+  const is24h = hours === 24;
+
   const { data: stats } = useQuery({
     queryKey: ["stats", hours],
     queryFn: async (ctx) => {
@@ -253,7 +289,16 @@ export function AllCharts() {
       console.log(`[arbScore debug] total=${data.length} withScore=${withScore.length} top5=`, data.slice(0,5).map(s => ({ symbol: s.symbol, arbScore: s.arbScore })));
       return data;
     },
-    refetchInterval: 30 * 1000,
+    refetchInterval: is24h ? 60 * 1000 : 30 * 1000,
+  });
+
+  // 24h時は全銘柄のヒストリーを一括取得（爆速表示用）
+  const { data: allHistory } = useQuery({
+    queryKey: ["all-history-24h"],
+    queryFn: fetchAllHistory,
+    refetchInterval: 60 * 1000,
+    staleTime: 50 * 1000,
+    enabled: is24h,
   });
 
 
@@ -414,7 +459,8 @@ export function AllCharts() {
             crossings80={s.crossings80}
             statsPosition={s.currentPosition}
             arbScore={s.arbScore}
-            delayMs={i * 500}
+            delayMs={is24h ? 0 : i * 500}
+            cachedHistory={is24h ? allHistory?.[s.symbol] : undefined}
           />
         ))}
       </div>

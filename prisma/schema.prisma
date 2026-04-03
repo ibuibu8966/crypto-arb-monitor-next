@@ -23,6 +23,14 @@ model spread_log {
   @@index([timestamp(sort: Desc)], map: "idx_timestamp")
 }
 
+/// ヒストリーキャッシュ（24hダウンサンプリング済み、1分更新）
+model spread_history_cache {
+  id             Int       @id @default(autoincrement())
+  symbol         String    @unique @db.VarChar(50)
+  history_json   Json      @default("[]")
+  calculated_at  DateTime? @db.Timestamptz(6)
+}
+
 /// 統計キャッシュ（getStats相当の事前計算結果）
 model spread_stats_cache {
   id            Int       @id @default(autoincrement())
