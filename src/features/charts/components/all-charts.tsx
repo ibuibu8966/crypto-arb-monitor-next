@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useState, useMemo, memo, useRef, useEffect } from "react";
+import { useState, useMemo, memo } from "react";
 import { useRouter } from "next/navigation";
 import {
   AreaChart,
@@ -55,25 +55,6 @@ const PERIODS = [
   { label: "1Y", hours: 8760 },
 ];
 
-/** 画面内に入ったかどうかを検知するフック */
-function useInView() {
-  const ref = useRef<HTMLDivElement>(null);
-  const [inView, setInView] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setInView(true); obs.disconnect(); } },
-      { rootMargin: "200px" }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-
-  return { ref, inView };
-}
-
 const MiniChart = memo(function MiniChart({
   symbol,
   hours,
@@ -93,8 +74,6 @@ const MiniChart = memo(function MiniChart({
   statsPosition: number;
   arbScore?: number;
 }) {
-  const { ref, inView } = useInView();
-
   const { data } = useQuery({
     queryKey: ["history", symbol, hours],
     queryFn: () => fetchHistory(symbol, hours),
@@ -102,7 +81,6 @@ const MiniChart = memo(function MiniChart({
     refetchInterval: 30 * 1000,
     retry: 2,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
-    enabled: inView,
   });
 
   const chartData = useMemo(() => {
@@ -151,7 +129,6 @@ const MiniChart = memo(function MiniChart({
 
   return (
     <div
-      ref={ref}
       className="bg-gray-900 border border-gray-800 rounded-lg p-2 sm:p-3 cursor-pointer hover:border-gray-600 transition-colors"
       onClick={onClick}
     >
@@ -251,9 +228,9 @@ const MiniChart = memo(function MiniChart({
 
 export function AllCharts() {
   const router = useRouter();
-  const [count, setCount] = useState(20); // デフォルト20銘柄（DB負荷軽減）
+  const [visibleCount, setVisibleCount] = useState(20);
   const [hours, setHours] = useState(24);
-  const [cols, setCols] = useState(1); // カード列数: 1, 2, 4
+  const [cols, setCols] = useState(1);
   const [ranking, setRanking] = useState<"position" | "crossings" | "spreadMax" | "spreadMin" | "arbScore">("position");
   const [minBandWidth, setMinBandWidth] = useState(0);
 
@@ -291,8 +268,8 @@ export function AllCharts() {
             return Math.abs(b.currentPosition - 50) - Math.abs(a.currentPosition - 50);
         }
       });
-    return count === 0 ? sorted : sorted.slice(0, count);
-  }, [stats, count, minBandWidth, ranking]);
+    return sorted;
+  }, [stats, minBandWidth, ranking]);
 
   return (
     <div>
@@ -393,21 +370,11 @@ export function AllCharts() {
         <div className="hidden sm:block w-px h-6 bg-gray-700" />
 
         {/* 表示数 */}
-        <div className="flex items-center gap-3 min-w-[160px]">
-          <span className="text-xs text-gray-400 whitespace-nowrap">
-            表示数 <span className="text-white font-medium">{count === 0 ? "ALL" : count}</span>
+        <div className="flex items-center">
+          <span className="text-xs text-gray-400">
+            表示 <span className="text-white font-medium">{Math.min(visibleCount, filtered.length)}</span>
+            <span className="text-gray-500"> / {filtered.length}件</span>
           </span>
-          <input
-            type="range"
-            min={1}
-            max={51}
-            value={count === 0 ? 51 : count}
-            onChange={(e) => {
-              const v = Number(e.target.value);
-              setCount(v >= 51 ? 0 : v);
-            }}
-            className="w-full accent-blue-500"
-          />
         </div>
       </div>
 
@@ -423,28 +390,37 @@ export function AllCharts() {
             <div className="h-[200px] bg-gray-800/50 rounded" />
           </div>
         ))}
-        {filtered.map((s) => {
-          return (
-            <MiniChart
-              key={s.symbol}
-              symbol={s.symbol}
-              hours={hours}
-              onClick={() =>
-                router.push(`/symbol/${encodeURIComponent(s.symbol)}`)
-              }
-              bestPair={s.bestPair}
-              crossings20={s.crossings20}
-              crossings80={s.crossings80}
-              statsPosition={s.currentPosition}
-              arbScore={s.arbScore}
-            />
-          );
-        })}
+        {filtered.slice(0, visibleCount).map((s) => (
+          <MiniChart
+            key={s.symbol}
+            symbol={s.symbol}
+            hours={hours}
+            onClick={() =>
+              router.push(`/symbol/${encodeURIComponent(s.symbol)}`)
+            }
+            bestPair={s.bestPair}
+            crossings20={s.crossings20}
+            crossings80={s.crossings80}
+            statsPosition={s.currentPosition}
+            arbScore={s.arbScore}
+          />
+        ))}
       </div>
 
       {filtered.length === 0 && (
         <div className="text-center text-gray-500 py-12">
           条件に一致する銘柄がありません
+        </div>
+      )}
+
+      {visibleCount < filtered.length && (
+        <div className="flex justify-center mt-4">
+          <button
+            onClick={() => setVisibleCount((prev) => prev + 20)}
+            className="px-6 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm rounded-lg border border-gray-700 transition-colors cursor-pointer"
+          >
+            もっと見る（残り {filtered.length - visibleCount}件）
+          </button>
         </div>
       )}
     </div>
