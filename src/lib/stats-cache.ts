@@ -33,3 +33,21 @@ export function setCacheHistory(symbol: string, hours: number, data: SpreadTickD
   const key = `history:${symbol}:${hours}`;
   historyCache.set(key, { data, expires: Date.now() + HISTORY_CACHE_TTL_MS });
 }
+
+/** fast-history用メモリキャッシュ（全銘柄一括、60秒TTL） */
+type HistoryCacheEntry = {
+  t: string; mexc: number | null; bitget: number | null; coinex: number | null;
+  mxBg: number | null; mxCx: number | null; bgCx: number | null; max: number | null;
+};
+let allHistoryCache: { data: Record<string, HistoryCacheEntry[]>; expires: number } | null = null;
+
+export function getCachedAllHistory(): Record<string, HistoryCacheEntry[]> | null {
+  if (allHistoryCache && allHistoryCache.expires > Date.now()) {
+    return allHistoryCache.data;
+  }
+  return null;
+}
+
+export function setCacheAllHistory(data: Record<string, HistoryCacheEntry[]>): void {
+  allHistoryCache = { data, expires: Date.now() + HISTORY_CACHE_TTL_MS };
+}
