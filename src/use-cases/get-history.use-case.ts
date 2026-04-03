@@ -13,34 +13,35 @@ type CacheEntry = {
   max: number | null;
 };
 
+/** キャッシュテーブルから24hデータを取得（軽量） */
+export async function getHistoryFromCacheUseCase(
+  symbol: string
+): Promise<SpreadTickDTO[] | null> {
+  const cached = await SpreadRepository.findHistoryFromCache(symbol);
+  if (!cached?.history_json) return null;
+
+  const items = cached.history_json as CacheEntry[];
+  if (items.length === 0) return null;
+
+  return items.map((r, i) => ({
+    id: i,
+    symbol,
+    timestamp: r.t ?? "",
+    mexc: r.mexc,
+    bitget: r.bitget,
+    coinex: r.coinex,
+    mxBgPct: r.mxBg,
+    mxCxPct: r.mxCx,
+    bgCxPct: r.bgCx,
+    maxSpreadPct: r.max,
+  }));
+}
+
+/** spread_logから直接取得（重いクエリ、フォールバック用） */
 export async function getHistoryUseCase(
   symbol: string,
   hours: number = 24
 ): Promise<SpreadTickDTO[]> {
-  // 24hリクエストはキャッシュテーブルから取得（コレクターが事前計算済み）
-  if (hours === 24) {
-    const cached = await SpreadRepository.findHistoryFromCache(symbol);
-    if (cached?.history_json) {
-      const items = cached.history_json as CacheEntry[];
-      if (items.length > 0) {
-        return items.map((r, i) => ({
-          id: i,
-          symbol,
-          timestamp: r.t ?? "",
-          mexc: r.mexc,
-          bitget: r.bitget,
-          coinex: r.coinex,
-          mxBgPct: r.mxBg,
-          mxCxPct: r.mxCx,
-          bgCxPct: r.bgCx,
-          maxSpreadPct: r.max,
-        }));
-      }
-    }
-    // キャッシュが空ならフォールバック
-  }
-
-  // キャッシュ対象外の時間範囲 or フォールバック → spread_logから直接取得
   const rows = await SpreadRepository.findHistory(symbol, hours);
 
   return rows.map((r) => ({

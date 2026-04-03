@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getHistoryUseCase } from "@/use-cases/get-history.use-case";
+import { getHistoryUseCase, getHistoryFromCacheUseCase } from "@/use-cases/get-history.use-case";
 import { getCachedHistory, setCacheHistory } from "@/lib/stats-cache";
 import { captureError } from "@/lib/logger";
 
@@ -9,7 +9,9 @@ const querySchema = z.object({
   hours: z.coerce.number().min(1).max(8760).default(24),
 });
 
-/** 同時DBクエリ数を制限するセマフォ */
+const CACHE_HEADERS = { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=30" };
+
+/** 同時DBクエリ数を制限するセマフォ（spread_log直接クエリ用） */
 const MAX_CONCURRENT = 3;
 let running = 0;
 const queue: Array<{ resolve: () => void }> = [];
@@ -38,31 +40,34 @@ export async function getHistoryController(req: NextRequest) {
     const params = Object.fromEntries(req.nextUrl.searchParams);
     const { symbol, hours } = querySchema.parse(params);
 
-    // メモリキャッシュチェック（DBアクセス不要）
+    // 1. メモリキャッシュチェック（DBアクセス不要）
     const cached = getCachedHistory(symbol, hours);
     if (cached) {
-      return NextResponse.json(cached, {
-        headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=30" },
-      });
+      return NextResponse.json(cached, { headers: CACHE_HEADERS });
     }
 
-    // セマフォでDB同時アクセスを制限
+    // 2. 24hリクエスト → キャッシュテーブルから取得（軽量、セマフォ不要）
+    if (hours === 24) {
+      const cacheData = await getHistoryFromCacheUseCase(symbol);
+      if (cacheData) {
+        setCacheHistory(symbol, hours, cacheData);
+        return NextResponse.json(cacheData, { headers: CACHE_HEADERS });
+      }
+      // キャッシュテーブルが空ならフォールバック（下のセマフォ付きクエリへ）
+    }
+
+    // 3. 重いクエリ → セマフォでDB同時アクセスを制限
     await acquireSemaphore();
     try {
-      // セマフォ取得後に再度キャッシュチェック（待っている間に別リクエストがキャッシュした可能性）
       const cachedAfterWait = getCachedHistory(symbol, hours);
       if (cachedAfterWait) {
-        return NextResponse.json(cachedAfterWait, {
-          headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=30" },
-        });
+        return NextResponse.json(cachedAfterWait, { headers: CACHE_HEADERS });
       }
 
       const data = await getHistoryUseCase(symbol, hours);
       setCacheHistory(symbol, hours, data);
 
-      return NextResponse.json(data, {
-        headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=30" },
-      });
+      return NextResponse.json(data, { headers: CACHE_HEADERS });
     } finally {
       releaseSemaphore();
     }
