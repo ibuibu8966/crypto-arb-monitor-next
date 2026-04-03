@@ -61,6 +61,15 @@ export class SpreadRepository {
     return rows;
   }
 
+  /** 24hキャッシュテーブルから取得（コレクターが事前計算済み） */
+  static async findHistoryFromCache(symbol: string) {
+    const cached = await prisma.spread_history_cache.findUnique({
+      where: { symbol },
+      select: { history_json: true, calculated_at: true },
+    });
+    return cached;
+  }
+
   /** 統計情報（キャッシュから取得。キャッシュなければ直接クエリ） */
   static async getStats(hours: number) {
     const timeRange = HOURS_TO_RANGE[hours];
