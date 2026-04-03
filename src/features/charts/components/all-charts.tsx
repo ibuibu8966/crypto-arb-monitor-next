@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useState, useMemo, memo } from "react";
+import { useState, useMemo, memo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   AreaChart,
@@ -64,6 +64,7 @@ const MiniChart = memo(function MiniChart({
   crossings80,
   statsPosition,
   arbScore,
+  delayMs = 0,
 }: {
   symbol: string;
   hours: number;
@@ -73,7 +74,16 @@ const MiniChart = memo(function MiniChart({
   crossings80: number;
   statsPosition: number;
   arbScore?: number;
+  delayMs?: number;
 }) {
+  const [ready, setReady] = useState(delayMs === 0);
+  useEffect(() => {
+    if (delayMs > 0) {
+      const t = setTimeout(() => setReady(true), delayMs);
+      return () => clearTimeout(t);
+    }
+  }, [delayMs]);
+
   const { data } = useQuery({
     queryKey: ["history", symbol, hours],
     queryFn: () => fetchHistory(symbol, hours),
@@ -81,6 +91,7 @@ const MiniChart = memo(function MiniChart({
     refetchInterval: 30 * 1000,
     retry: 2,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
+    enabled: ready,
   });
 
   const chartData = useMemo(() => {
@@ -390,7 +401,7 @@ export function AllCharts() {
             <div className="h-[200px] bg-gray-800/50 rounded" />
           </div>
         ))}
-        {filtered.slice(0, visibleCount).map((s) => (
+        {filtered.slice(0, visibleCount).map((s, i) => (
           <MiniChart
             key={s.symbol}
             symbol={s.symbol}
@@ -403,6 +414,7 @@ export function AllCharts() {
             crossings80={s.crossings80}
             statsPosition={s.currentPosition}
             arbScore={s.arbScore}
+            delayMs={i * 200}
           />
         ))}
       </div>
