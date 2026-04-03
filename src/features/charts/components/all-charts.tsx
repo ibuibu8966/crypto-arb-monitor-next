@@ -242,7 +242,7 @@ export function AllCharts() {
   const [visibleCount, setVisibleCount] = useState(20);
   const [hours, setHours] = useState(24);
   const [cols, setCols] = useState(1);
-  const [ranking, setRanking] = useState<"position" | "crossings" | "spreadMax" | "spreadMin" | "arbScore">("position");
+  const [ranking, setRanking] = useState<"position" | "crossings" | "spreadMax" | "spreadMin" | "arbScore">("arbScore");
   const [minBandWidth, setMinBandWidth] = useState(0);
 
   const { data: stats } = useQuery({
