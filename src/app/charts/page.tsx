@@ -1,5 +1,3 @@
-// force-dynamic: ビルド時にDBアクセスしない（Railway内部DBはビルド時不可）
-// unstable_cache: ランタイムで60秒キャッシュ → ISRと同等の速度
 export const dynamic = "force-dynamic";
 
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
@@ -8,17 +6,6 @@ import { DynamicAllCharts } from "@/components/dynamic-charts";
 import { prisma } from "@/lib/prisma";
 import { unstable_cache } from "next/cache";
 import type { PairName } from "@/types";
-
-/** 上位30銘柄のシンボルを取得 */
-async function _getTopSymbols(): Promise<string[]> {
-  const top = await prisma.spread_stats_cache.findMany({
-    where: { time_range: "24h" },
-    orderBy: { avg_spread: "desc" },
-    take: 30,
-    select: { symbol: true },
-  });
-  return top.map((r) => r.symbol);
-}
 
 async function _getFastStats() {
   const cached = await prisma.spread_stats_cache.findMany({
@@ -48,45 +35,18 @@ async function _getFastStats() {
   }));
 }
 
-/** SSRでは上位30銘柄のみプリフェッチ（メモリ節約） */
-async function _getFastHistory(topSymbols: string[]) {
-  const cached = await prisma.spread_history_cache.findMany({
-    where: { symbol: { in: topSymbols } },
-  });
-  const result: Record<string, unknown[]> = {};
-  for (const row of cached) {
-    const history = row.history_json as unknown[];
-    if (Array.isArray(history) && history.length > 0) {
-      result[row.symbol] = history;
-    }
-  }
-  return result;
-}
-
-// 60秒ランタイムキャッシュ（ISR相当）
-const getTopSymbols = unstable_cache(_getTopSymbols, ["top-symbols"], { revalidate: 60 });
+// statsのみ60秒キャッシュ（軽量データ）
 const getFastStats = unstable_cache(_getFastStats, ["fast-stats"], { revalidate: 60 });
 
+// historyはSSRから完全に外す（クライアントサイドでfetch）
+// → OOM解消 + stats表示は爆速
 export default async function ChartsPage() {
   const queryClient = getQueryClient();
 
-  const topSymbols = await getTopSymbols();
-  const getFastHistoryCached = unstable_cache(
-    () => _getFastHistory(topSymbols),
-    ["fast-history", ...topSymbols],
-    { revalidate: 60 }
-  );
-
-  await Promise.all([
-    queryClient.prefetchQuery({
-      queryKey: ["stats", 24],
-      queryFn: getFastStats,
-    }),
-    queryClient.prefetchQuery({
-      queryKey: ["all-history-24h"],
-      queryFn: getFastHistoryCached,
-    }),
-  ]);
+  await queryClient.prefetchQuery({
+    queryKey: ["stats", 24],
+    queryFn: getFastStats,
+  });
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
