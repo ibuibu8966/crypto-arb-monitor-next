@@ -1,14 +1,16 @@
-// ISR: 60秒キャッシュ → 2回目以降は静的HTML並の速度
-export const revalidate = 60;
+// force-dynamic: ビルド時にDBアクセスしない（Railway内部DBはビルド時不可）
+// unstable_cache: ランタイムで60秒キャッシュ → ISRと同等の速度
+export const dynamic = "force-dynamic";
 
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { getQueryClient } from "@/lib/query-client";
 import { DynamicAllCharts } from "@/components/dynamic-charts";
 import { prisma } from "@/lib/prisma";
+import { unstable_cache } from "next/cache";
 import type { PairName } from "@/types";
 
 /** 上位30銘柄のシンボルを取得 */
-async function getTopSymbols(): Promise<string[]> {
+async function _getTopSymbols(): Promise<string[]> {
   const top = await prisma.spread_stats_cache.findMany({
     where: { time_range: "24h" },
     orderBy: { avg_spread: "desc" },
@@ -18,7 +20,7 @@ async function getTopSymbols(): Promise<string[]> {
   return top.map((r) => r.symbol);
 }
 
-async function getFastStats() {
+async function _getFastStats() {
   const cached = await prisma.spread_stats_cache.findMany({
     where: { time_range: "24h" },
     orderBy: { avg_spread: "desc" },
@@ -47,7 +49,7 @@ async function getFastStats() {
 }
 
 /** SSRでは上位30銘柄のみプリフェッチ（メモリ節約） */
-async function getFastHistory(topSymbols: string[]) {
+async function _getFastHistory(topSymbols: string[]) {
   const cached = await prisma.spread_history_cache.findMany({
     where: { symbol: { in: topSymbols } },
   });
@@ -61,11 +63,19 @@ async function getFastHistory(topSymbols: string[]) {
   return result;
 }
 
+// 60秒ランタイムキャッシュ（ISR相当）
+const getTopSymbols = unstable_cache(_getTopSymbols, ["top-symbols"], { revalidate: 60 });
+const getFastStats = unstable_cache(_getFastStats, ["fast-stats"], { revalidate: 60 });
+
 export default async function ChartsPage() {
   const queryClient = getQueryClient();
 
-  // 上位30銘柄を特定してからプリフェッチ
   const topSymbols = await getTopSymbols();
+  const getFastHistoryCached = unstable_cache(
+    () => _getFastHistory(topSymbols),
+    ["fast-history", ...topSymbols],
+    { revalidate: 60 }
+  );
 
   await Promise.all([
     queryClient.prefetchQuery({
@@ -74,7 +84,7 @@ export default async function ChartsPage() {
     }),
     queryClient.prefetchQuery({
       queryKey: ["all-history-24h"],
-      queryFn: () => getFastHistory(topSymbols),
+      queryFn: getFastHistoryCached,
     }),
   ]);
 
