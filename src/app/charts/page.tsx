@@ -1,11 +1,22 @@
-export const dynamic = "force-dynamic";
+// ISR: 60秒キャッシュ → 2回目以降は静的HTML並の速度
+export const revalidate = 60;
 
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { getQueryClient } from "@/lib/query-client";
-import { getStatsUseCase } from "@/use-cases/get-stats.use-case";
 import { DynamicAllCharts } from "@/components/dynamic-charts";
 import { prisma } from "@/lib/prisma";
 import type { PairName } from "@/types";
+
+/** 上位30銘柄のシンボルを取得 */
+async function getTopSymbols(): Promise<string[]> {
+  const top = await prisma.spread_stats_cache.findMany({
+    where: { time_range: "24h" },
+    orderBy: { avg_spread: "desc" },
+    take: 30,
+    select: { symbol: true },
+  });
+  return top.map((r) => r.symbol);
+}
 
 async function getFastStats() {
   const cached = await prisma.spread_stats_cache.findMany({
@@ -35,8 +46,11 @@ async function getFastStats() {
   }));
 }
 
-async function getFastHistory() {
-  const cached = await prisma.spread_history_cache.findMany();
+/** SSRでは上位30銘柄のみプリフェッチ（メモリ節約） */
+async function getFastHistory(topSymbols: string[]) {
+  const cached = await prisma.spread_history_cache.findMany({
+    where: { symbol: { in: topSymbols } },
+  });
   const result: Record<string, unknown[]> = {};
   for (const row of cached) {
     const history = row.history_json as unknown[];
@@ -50,7 +64,9 @@ async function getFastHistory() {
 export default async function ChartsPage() {
   const queryClient = getQueryClient();
 
-  // 24h用のfast系データを並列プリフェッチ
+  // 上位30銘柄を特定してからプリフェッチ
+  const topSymbols = await getTopSymbols();
+
   await Promise.all([
     queryClient.prefetchQuery({
       queryKey: ["stats", 24],
@@ -58,7 +74,7 @@ export default async function ChartsPage() {
     }),
     queryClient.prefetchQuery({
       queryKey: ["all-history-24h"],
-      queryFn: getFastHistory,
+      queryFn: () => getFastHistory(topSymbols),
     }),
   ]);
 

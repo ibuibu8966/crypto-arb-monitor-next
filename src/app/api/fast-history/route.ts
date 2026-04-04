@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { captureError } from "@/lib/logger";
-import { getCachedAllHistory, setCacheAllHistory } from "@/lib/stats-cache";
 
 const CACHE_HEADERS = { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=30" };
 
@@ -10,31 +9,33 @@ type HistoryCacheEntry = {
   mxBg: number | null; mxCx: number | null; bgCx: number | null; max: number | null;
 };
 
+/** 数値を小数2桁に丸める（転送量削減） */
+function round2(v: number | null): number | null {
+  return v == null ? null : Math.round(v * 100) / 100;
+}
+
 /**
  * 24h専用の高速history API
- * メモリキャッシュ → spread_history_cacheテーブルの順で返却
- * コレクターが事前計算したキャッシュを読むだけなので軽量
+ * spread_history_cacheテーブルから取得（メモリキャッシュ廃止 → ISRに任せる）
  */
 export async function GET() {
   try {
-    // 1. メモリキャッシュ（最速）
-    const memCached = getCachedAllHistory();
-    if (memCached && Object.keys(memCached).length > 0) {
-      return NextResponse.json(memCached, { headers: CACHE_HEADERS });
-    }
-
-    // 2. DBキャッシュテーブルから取得
     const cached = await prisma.spread_history_cache.findMany();
     const result: Record<string, HistoryCacheEntry[]> = {};
     for (const row of cached) {
       const history = row.history_json as HistoryCacheEntry[];
       if (Array.isArray(history) && history.length > 0) {
-        result[row.symbol] = history;
+        result[row.symbol] = history.map((h) => ({
+          t: h.t,
+          mexc: round2(h.mexc),
+          bitget: round2(h.bitget),
+          coinex: round2(h.coinex),
+          mxBg: round2(h.mxBg),
+          mxCx: round2(h.mxCx),
+          bgCx: round2(h.bgCx),
+          max: round2(h.max),
+        }));
       }
-    }
-
-    if (Object.keys(result).length > 0) {
-      setCacheAllHistory(result);
     }
 
     return NextResponse.json(result, { headers: CACHE_HEADERS });
