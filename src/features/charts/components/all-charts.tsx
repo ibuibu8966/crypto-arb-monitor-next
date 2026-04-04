@@ -33,24 +33,6 @@ async function fetchHistory(
   return res.json();
 }
 
-/** 全銘柄のヒストリーを一括取得（24h専用） */
-type HistoryCacheEntry = {
-  t: string;
-  mexc: number | null;
-  bitget: number | null;
-  coinex: number | null;
-  mxBg: number | null;
-  mxCx: number | null;
-  bgCx: number | null;
-  max: number | null;
-};
-
-async function fetchAllHistory(): Promise<Record<string, HistoryCacheEntry[]>> {
-  const res = await fetch("/api/fast-history");
-  if (!res.ok) throw new Error("API error");
-  return res.json();
-}
-
 function getPairValue(r: SpreadTickDTO, pair: PairName): number {
   switch (pair) {
     case "mx_bg": return r.mxBgPct ?? 0;
@@ -85,7 +67,6 @@ const MiniChart = memo(function MiniChart({
   statsPosition,
   arbScore,
   delayMs = 0,
-  cachedHistory,
 }: {
   symbol: string;
   hours: number;
@@ -96,17 +77,14 @@ const MiniChart = memo(function MiniChart({
   statsPosition: number;
   arbScore?: number;
   delayMs?: number;
-  cachedHistory?: HistoryCacheEntry[];
 }) {
-  const hasCached = !!cachedHistory;
-
-  const [ready, setReady] = useState(hasCached || delayMs === 0);
+  const [ready, setReady] = useState(delayMs === 0);
   useEffect(() => {
-    if (!hasCached && delayMs > 0) {
+    if (delayMs > 0) {
       const t = setTimeout(() => setReady(true), delayMs);
       return () => clearTimeout(t);
     }
-  }, [delayMs, hasCached]);
+  }, [delayMs]);
 
   const { data } = useQuery({
     queryKey: ["history", symbol, hours],
@@ -115,20 +93,10 @@ const MiniChart = memo(function MiniChart({
     refetchInterval: 30 * 1000,
     retry: 2,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
-    enabled: ready && !hasCached,
+    enabled: ready,
   });
 
   const chartData = useMemo(() => {
-    // 24h事前計算済みキャッシュがあればそれを使う
-    if (cachedHistory) {
-      return cachedHistory.map((r) => {
-        const pairVal = bestPair === "mx_bg" ? r.mxBg : bestPair === "mx_cx" ? r.mxCx : r.bgCx;
-        return {
-          t: new Date(r.t).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }),
-          v: pairVal ?? 0,
-        };
-      });
-    }
     if (!data) return [];
     return data.map((r) => ({
       t: new Date(r.timestamp).toLocaleTimeString("ja-JP", {
@@ -137,7 +105,7 @@ const MiniChart = memo(function MiniChart({
       }),
       v: getPairValue(r, bestPair),
     }));
-  }, [data, bestPair, cachedHistory]);
+  }, [data, bestPair]);
 
   const { yMin, yMax, line20, line80, yTicks, dataMin, dataMax } = useMemo(() => {
     if (chartData.length === 0)
@@ -290,15 +258,6 @@ export function AllCharts() {
       return data;
     },
     refetchInterval: is24h ? 60 * 1000 : 30 * 1000,
-  });
-
-  // 24h時は全銘柄のヒストリーを一括取得（爆速表示用）
-  const { data: allHistory } = useQuery({
-    queryKey: ["all-history-24h"],
-    queryFn: fetchAllHistory,
-    refetchInterval: 60 * 1000,
-    staleTime: 50 * 1000,
-    enabled: is24h,
   });
 
 
@@ -459,8 +418,7 @@ export function AllCharts() {
             crossings80={s.crossings80}
             statsPosition={s.currentPosition}
             arbScore={s.arbScore}
-            delayMs={is24h ? 0 : i * 500}
-            cachedHistory={is24h ? allHistory?.[s.symbol] : undefined}
+            delayMs={0}
           />
         ))}
       </div>
