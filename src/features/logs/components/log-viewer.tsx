@@ -160,6 +160,14 @@ export function LogViewer() {
         >
           CSV ダウンロード
         </button>
+
+        <a
+          href="/api/export/csv"
+          download
+          className="bg-purple-600 hover:bg-purple-700 text-white text-sm px-3 py-1.5 rounded-lg cursor-pointer inline-block"
+        >
+          全データ CSV 一括ダウンロード
+        </a>
       </div>
 
       {/* テーブル */}
