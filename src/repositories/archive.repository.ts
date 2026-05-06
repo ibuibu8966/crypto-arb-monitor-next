@@ -5,6 +5,7 @@
  * このファイルは server side でのみ使用すること。
  */
 import { parquetReadObjects } from "hyparquet";
+import { compressors } from "hyparquet-compressors";
 import { fetchDayParquet } from "@/lib/r2-client";
 
 type ArchiveRow = {
@@ -35,7 +36,7 @@ function utcDateRange(from: Date, to: Date): Date[] {
 
 async function readParquetForSymbol(bytes: Uint8Array, symbol: string): Promise<ArchiveRow[]> {
   const file = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
-  const rows = await parquetReadObjects({ file });
+  const rows = await parquetReadObjects({ file, compressors });
   const filtered: ArchiveRow[] = [];
   for (const r of rows as Record<string, unknown>[]) {
     if (r.symbol !== symbol) continue;
