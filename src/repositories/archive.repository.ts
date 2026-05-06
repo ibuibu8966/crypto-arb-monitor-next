@@ -6,7 +6,7 @@
  */
 import { parquetReadObjects } from "hyparquet";
 import { compressors } from "hyparquet-compressors";
-import { fetchDayParquet } from "@/lib/r2-client";
+import { fetchSymbolDayParquet } from "@/lib/r2-client";
 
 type ArchiveRow = {
   id: number;
@@ -34,12 +34,11 @@ function utcDateRange(from: Date, to: Date): Date[] {
   return dates;
 }
 
-async function readParquetForSymbol(bytes: Uint8Array, symbol: string): Promise<ArchiveRow[]> {
+async function readSymbolParquet(bytes: Uint8Array): Promise<ArchiveRow[]> {
   const file = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
   const rows = await parquetReadObjects({ file, compressors });
-  const filtered: ArchiveRow[] = [];
+  const out: ArchiveRow[] = [];
   for (const r of rows as Record<string, unknown>[]) {
-    if (r.symbol !== symbol) continue;
     const ts = r.timestamp;
     let timestamp: string;
     if (ts instanceof Date) timestamp = ts.toISOString();
@@ -48,9 +47,9 @@ async function readParquetForSymbol(bytes: Uint8Array, symbol: string): Promise<
     else if (typeof ts === "number") timestamp = new Date(ts).toISOString();
     else continue;
 
-    filtered.push({
+    out.push({
       id: Number(r.id ?? 0),
-      symbol: String(r.symbol),
+      symbol: String(r.symbol ?? ""),
       timestamp,
       mexc: r.mexc as number | null,
       bitget: r.bitget as number | null,
@@ -61,7 +60,7 @@ async function readParquetForSymbol(bytes: Uint8Array, symbol: string): Promise<
       max_spread_pct: r.max_spread_pct as number | null,
     });
   }
-  return filtered;
+  return out;
 }
 
 /** 並列度制限つき map */
@@ -80,7 +79,8 @@ async function mapWithConcurrency<T, U>(items: T[], limit: number, fn: (x: T) =>
 
 /**
  * R2 上のアーカイブから期間内の指定銘柄のticksを取得。
- * from と to は UTC タイムスタンプ。両端の日のParquetを読みつつ、from <= timestamp < to で絞る。
+ * symbol-partitioned 設計（spread_log/{symbol}/YYYY/MM/DD.parquet）により
+ * 1ファイル = 1銘柄1日分（約12,500行・50-200KB）と軽量。
  */
 export async function findHistoryFromArchive(
   symbol: string,
@@ -90,10 +90,10 @@ export async function findHistoryFromArchive(
   const dates = utcDateRange(from, to);
 
   const perDay = await mapWithConcurrency(dates, FETCH_CONCURRENCY, async (d) => {
-    const bytes = await fetchDayParquet(d);
+    const bytes = await fetchSymbolDayParquet(symbol, d);
     if (!bytes) return [];
     try {
-      return await readParquetForSymbol(bytes, symbol);
+      return await readSymbolParquet(bytes);
     } catch {
       return [];
     }

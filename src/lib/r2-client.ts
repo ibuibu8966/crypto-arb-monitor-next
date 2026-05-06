@@ -33,11 +33,12 @@ function getClient(): S3Client {
   return _client;
 }
 
-export function keyForUTCDate(date: Date): string {
+export function keyForSymbolUTCDate(symbol: string, date: Date): string {
   const y = date.getUTCFullYear().toString().padStart(4, "0");
   const m = (date.getUTCMonth() + 1).toString().padStart(2, "0");
   const d = date.getUTCDate().toString().padStart(2, "0");
-  return `spread_log/${y}/${m}/${d}.parquet`;
+  const safe = encodeURIComponent(symbol);
+  return `spread_log/${safe}/${y}/${m}/${d}.parquet`;
 }
 
 /** メモリLRUキャッシュ（最大10日、24h TTL） */
@@ -67,11 +68,11 @@ function cacheSet(key: string, bytes: Uint8Array) {
 }
 
 /**
- * 指定UTC日のParquetをR2から取得。存在しなければ null。
- * メモリLRUにキャッシュ。
+ * 指定銘柄×UTC日のParquetをR2から取得。存在しなければ null。
+ * メモリLRUにキャッシュ。symbol-partitioned 設計により1ファイルが軽量。
  */
-export async function fetchDayParquet(date: Date): Promise<Uint8Array | null> {
-  const key = keyForUTCDate(date);
+export async function fetchSymbolDayParquet(symbol: string, date: Date): Promise<Uint8Array | null> {
+  const key = keyForSymbolUTCDate(symbol, date);
   const cached = cacheGet(key);
   if (cached) return cached;
 
