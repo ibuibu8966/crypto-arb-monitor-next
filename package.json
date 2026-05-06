@@ -10,9 +10,11 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.700.0",
     "@prisma/client": "^6.6.0",
     "@sentry/nextjs": "^10.46.0",
     "@tanstack/react-query": "^5.75.0",
+    "hyparquet": "^1.7.0",
     "next": "^15.3.0",
     "next-nprogress-bar": "^2.4.0",
     "react": "^19.1.0",

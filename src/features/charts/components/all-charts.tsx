@@ -22,14 +22,26 @@ async function fetchStats(hours: number): Promise<StatsDTO[]> {
   return res.json();
 }
 
+/**
+ * spread_log は 31日FIFO で削除されるため、1ヶ月（720h）超のリクエストは
+ * 自動的に R2 アーカイブから取得する。R2_READ_ENABLED=false の本番では
+ * archive 経路は503を返すので、その場合は live にフォールバックして空配列扱い。
+ */
+const ARCHIVE_HOURS_THRESHOLD = 720;
+
 async function fetchHistory(
   symbol: string,
   hours: number
 ): Promise<SpreadTickDTO[]> {
-  const res = await fetch(
-    `/api/history?symbol=${encodeURIComponent(symbol)}&hours=${hours}`
-  );
-  if (!res.ok) throw new Error("API error");
+  const useArchive = hours > ARCHIVE_HOURS_THRESHOLD;
+  const url = useArchive
+    ? `/api/history?symbol=${encodeURIComponent(symbol)}&hours=${hours}&source=archive`
+    : `/api/history?symbol=${encodeURIComponent(symbol)}&hours=${hours}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    if (useArchive && res.status === 503) return [];
+    throw new Error("API error");
+  }
   return res.json();
 }
 
